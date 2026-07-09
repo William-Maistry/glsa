@@ -1,0 +1,50 @@
+[
+  {
+    "id": "EMP000001",
+    "qrCode": "DAMS|EMP|000001",
+    "firstName": "John",
+    "lastName": "Smith",
+    "type": "Driver",
+    "company": "ABC Logistics",
+    "employeeNumber": "EMP001",
+    "vehicle": "CA123456",
+    "status": "Active",
+    "breathTest": {
+      "required": true,
+      "lastResult": "PASS",
+      "bac": "0.000"
+    }
+  },
+  {
+    "id": "EMP000002",
+    "qrCode": "DAMS|EMP|000002",
+    "firstName": "Sarah",
+    "lastName": "Williams",
+    "type": "Office Staff",
+    "company": "ABC Logistics",
+    "employeeNumber": "EMP002",
+    "vehicle": null,
+    "status": "Active",
+    "breathTest": {
+      "required": false,
+      "lastResult": null,
+      "bac": null
+    }
+  },
+  {
+    "id": "DRV000001",
+    "qrCode": "DAMS|DRV|000001",
+    "firstName": "Michael",
+    "lastName": "Brown",
+    "type": "Contract Driver",
+    "company": "Fast Freight Transport",
+    "employeeNumber": "DRV001",
+    "vehicle": "ND456789",
+    "status": "Active",
+    "breathTest": {
+      "required": true,
+      "lastResult": "PASS",
+      "bac": "0.000"
+    }
+  }
+]
