@@ -22,7 +22,7 @@ function App() {
 
         scanner.clear();
       },
-      (error) => {
+      (_error) => {
         // Ignore scan errors
       }
     );
