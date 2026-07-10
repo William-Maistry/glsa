@@ -11,18 +11,25 @@ import users from "./data/users.json";
 
 function App() {
 
+
   const [_userId, setUserId] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  const [idScanResult, setIdScanResult] = useState("");
-  const [idDetails, setIdDetails] = useState<any>(null);
 
+  const [idScanResult, setIdScanResult] = useState("");
   const [idScannerActive, setIdScannerActive] = useState(false);
   const [scanStatus, setScanStatus] = useState("");
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const qrScannerRef = useRef<any>(null);
+  const videoRef =
+    useRef<HTMLVideoElement | null>(null);
+
+
+  const qrScannerRef =
+    useRef<any>(null);
+
+
+
 
 
 
@@ -33,30 +40,38 @@ function App() {
   useEffect(() => {
 
 
-    const scanner = new Html5QrcodeScanner(
-      "reader",
-      {
-        fps: 10,
-        qrbox: 250
-      },
-      false
-    );
+    const scanner =
+      new Html5QrcodeScanner(
+        "reader",
+        {
+          fps:10,
+          qrbox:250
+        },
+        false
+      );
 
 
-    qrScannerRef.current = scanner;
+
+    qrScannerRef.current =
+      scanner;
+
 
 
     scanner.render(
 
-      (decodedText) => {
+      (decodedText)=>{
 
 
         setUserId(decodedText);
 
 
-        const user = users.find(
-          person => person.qrCode === decodedText
-        );
+
+        const user =
+          users.find(
+            person =>
+              person.qrCode === decodedText
+          );
+
 
 
         setSelectedUser(user);
@@ -64,16 +79,19 @@ function App() {
 
       },
 
-      () => {}
+
+      ()=>{}
 
     );
 
 
 
-    return () => {
+    return ()=>{
+
 
       scanner.clear()
-        .catch(() => {});
+        .catch(()=>{});
+
 
     };
 
@@ -85,37 +103,48 @@ function App() {
 
 
 
+
+
+
   // ==========================
-  // ID CARD SCANNER
+  // SMART ID BARCODE SCANNER
   // ==========================
 
-  const startIdScanner = async () => {
+  const startIdScanner = async()=>{
 
 
     setIdScannerActive(true);
 
+
     setScanStatus(
-      "Starting ID scanner..."
+      "Starting Smart ID scanner..."
     );
 
 
 
-    // release QR camera
 
-    if (qrScannerRef.current) {
+    // stop employee QR scanner
 
-      try {
+    if(qrScannerRef.current){
+
+
+      try{
 
         await qrScannerRef.current.clear();
 
       }
-      catch {}
+      catch{}
 
     }
 
 
 
-    const hints = new Map();
+
+
+
+    const hints =
+      new Map();
+
 
 
     hints.set(
@@ -124,11 +153,7 @@ function App() {
 
         BarcodeFormat.PDF_417,
 
-        BarcodeFormat.CODE_128,
-
-        BarcodeFormat.CODE_39,
-
-        BarcodeFormat.QR_CODE
+        BarcodeFormat.CODE_39
 
       ]
     );
@@ -142,6 +167,8 @@ function App() {
 
 
 
+
+
     const reader =
       new BrowserMultiFormatReader(
         hints
@@ -149,26 +176,36 @@ function App() {
 
 
 
-    try {
+
+
+
+    try{
 
 
       await reader.decodeFromConstraints(
 
         {
 
-          video: {
 
-            facingMode: "environment",
+          video:{
 
-            width: {
-              ideal: 1920
+
+            facingMode:
+              "environment",
+
+
+            width:{
+              ideal:1920
             },
 
-            height: {
-              ideal: 1080
+
+            height:{
+              ideal:1080
             }
 
+
           }
+
 
         },
 
@@ -176,16 +213,17 @@ function App() {
         videoRef.current!,
 
 
-        (result, _error) => {
+
+        (result)=>{
 
 
           setScanStatus(
-            "Looking for ID barcode..."
+            "Searching for Smart ID barcode..."
           );
 
 
 
-          if (result) {
+          if(result){
 
 
             const data =
@@ -194,17 +232,13 @@ function App() {
 
 
             setScanStatus(
-              "Barcode detected!"
+              "Smart ID barcode detected!"
             );
+
 
 
             setIdScanResult(
               data
-            );
-
-
-            setIdDetails(
-              parseSouthAfricanId(data)
             );
 
 
@@ -218,11 +252,12 @@ function App() {
 
 
     }
-    catch(error:any) {
+    catch(error:any){
 
 
       setScanStatus(
-        "Scanner error: " + error.message
+        "Scanner error: " +
+        error.message
       );
 
 
@@ -237,55 +272,6 @@ function App() {
 
 
 
-  // ==========================
-  // BASIC ID DATA PARSER
-  // ==========================
-
-  const parseSouthAfricanId = (data:string) => {
-
-
-    const extract = (key:string) => {
-
-
-      const result =
-        data.match(
-          new RegExp(
-            `${key}([^\\n\\r]+)`
-          )
-        );
-
-
-      return result
-        ? result[1].trim()
-        : "";
-
-    };
-
-
-    return {
-
-      surname:
-        extract("DCS"),
-
-      firstNames:
-        extract("DAC"),
-
-      dateOfBirth:
-        extract("DBB"),
-
-      gender:
-        extract("DBC"),
-
-      nationality:
-        extract("DCT")
-
-    };
-
-  };
-
-
-
-
 
 
   return (
@@ -295,9 +281,12 @@ function App() {
     }}>
 
 
+
       <h1>
         Depot Access Scanner
       </h1>
+
+
 
 
 
@@ -306,7 +295,9 @@ function App() {
       </h2>
 
 
+
       <div id="reader"></div>
+
 
 
 
@@ -315,46 +306,48 @@ function App() {
       {
         selectedUser && (
 
+
           <div>
 
-            <h2>
-              User Found
-            </h2>
+
+            <h3>
+              Employee Found
+            </h3>
+
 
 
             <p>
               Name:
               {" "}
-              <strong>
-                {selectedUser.firstName}
-                {" "}
-                {selectedUser.lastName}
-              </strong>
+              {selectedUser.firstName}
+              {" "}
+              {selectedUser.lastName}
             </p>
+
 
 
             <p>
               Company:
               {" "}
-              <strong>
-                {selectedUser.company}
-              </strong>
+              {selectedUser.company}
             </p>
+
 
 
             <p>
               Vehicle:
               {" "}
-              <strong>
-                {selectedUser.vehicle || "None"}
-              </strong>
+              {selectedUser.vehicle || "None"}
             </p>
+
 
 
           </div>
 
+
         )
       }
+
 
 
 
@@ -368,13 +361,15 @@ function App() {
 
 
 
+
       <h2>
-        South African ID Card Scanner
+        South African Smart ID Scanner
       </h2>
 
 
+
       <p>
-        Scan the barcode on the back of the ID card.
+        Scan only the PDF417 barcode on the back of the Smart ID card.
       </p>
 
 
@@ -383,6 +378,7 @@ function App() {
 
       {
         !idScannerActive && (
+
 
           <button
 
@@ -398,6 +394,7 @@ function App() {
             Start ID Scanner
 
           </button>
+
 
         )
       }
@@ -440,11 +437,12 @@ function App() {
       {
         idScanResult && (
 
+
           <div>
 
 
             <h3>
-              Raw Barcode Data
+              Smart ID Raw Data
             </h3>
 
 
@@ -455,74 +453,23 @@ function App() {
               readOnly
 
               style={{
+
                 width:"100%",
-                height:"150px"
+                height:"250px"
+
               }}
 
             />
 
 
+
           </div>
+
 
         )
       }
 
 
-
-
-
-
-
-      {
-        idDetails && (
-
-          <div>
-
-
-            <h3>
-              Extracted Details
-            </h3>
-
-
-            <p>
-              First Names:
-              {" "}
-              {idDetails.firstNames}
-            </p>
-
-
-            <p>
-              Surname:
-              {" "}
-              {idDetails.surname}
-            </p>
-
-
-            <p>
-              Date Of Birth:
-              {" "}
-              {idDetails.dateOfBirth}
-            </p>
-
-
-            <p>
-              Gender:
-              {" "}
-              {idDetails.gender}
-            </p>
-
-
-            <p>
-              Nationality:
-              {" "}
-              {idDetails.nationality}
-            </p>
-
-
-          </div>
-
-        )
-      }
 
 
 
