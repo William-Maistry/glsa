@@ -3,7 +3,7 @@ import { Html5QrcodeScanner } from "html5-qrcode";
 import users from "./data/users.json";
 
 function App() {
-  const [userId, setUserId] = useState("");
+  const [_userId, setUserId] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const [idScanResult, setIdScanResult] = useState("");
