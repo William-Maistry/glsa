@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode";
-import {
-  BrowserPDF417Reader,
-  BrowserMultiFormatReader
-} from "@zxing/browser";
+import { BrowserPDF417Reader } from "@zxing/browser";
 
 import users from "./data/users.json";
 
@@ -51,9 +48,9 @@ function App() {
 
 
 
-  // ===============================
+  // ================================
   // QR LIVE CAMERA
-  // ===============================
+  // ================================
 
   useEffect(() => {
 
@@ -107,9 +104,9 @@ function App() {
 
 
 
-  // ===============================
-  // QR IMAGE
-  // ===============================
+  // ================================
+  // QR IMAGE UPLOAD
+  // ================================
 
   async function scanQrImage(
     e:React.ChangeEvent<HTMLInputElement>
@@ -155,7 +152,7 @@ function App() {
     catch{
 
       alert(
-        "QR not found"
+        "QR code not found"
       );
 
     }
@@ -165,10 +162,9 @@ function App() {
 
 
 
-
-  // ===============================
+  // ================================
   // SMART ID PDF417
-  // ===============================
+  // ================================
 
   async function scanSmartId(
     e:React.ChangeEvent<HTMLInputElement>
@@ -192,7 +188,6 @@ function App() {
 
 
         try{
-
 
           const result =
             await pdfReader
@@ -235,7 +230,7 @@ function App() {
         catch{
 
           alert(
-            "Smart ID failed"
+            "Could not read Smart ID"
           );
 
         }
@@ -253,10 +248,9 @@ function App() {
 
 
 
-
-  // ===============================
-  // GENERIC PDF417 DEBUG SCANNER
-  // ===============================
+  // ================================
+  // GENERIC PDF417 + DEBUG
+  // ================================
 
 
   async function scanGenericPdf417(
@@ -276,58 +270,37 @@ function App() {
       new Image();
 
 
-
     img.onload =
       async()=>{
 
 
         try{
 
-
-          const reader =
-            new BrowserMultiFormatReader();
-
-
-
           const result =
-            await reader.decodeFromImageElement(img);
+            await pdfReader
+            .decodeFromImageElement(img);
 
 
 
-          const rawBytes =
-            result.getRawBytes();
-
-
-
-          const debug = {
-
-            text:
-              result.getText(),
-
-
-            format:
-              result.getBarcodeFormat(),
-
-
-            rawBytes:
-
-              rawBytes
-              ?
-              Array.from(rawBytes)
-              :
-              null
-
-          };
-
-
-
-          setDebugResult(
+          const debug =
             JSON.stringify(
-              debug,
-              null,
+              result,
+              (_key,value)=>{
+
+                if(value instanceof Uint8Array){
+
+                  return Array.from(value);
+
+                }
+
+                return value;
+
+              },
               2
-            )
-          );
+            );
+
+
+          setDebugResult(debug);
 
 
 
@@ -339,15 +312,14 @@ function App() {
         }
         catch(err:any){
 
-
           setDebugResult(
-            "ERROR\n" +
+            "ERROR:\n" +
             err.message
           );
 
 
           alert(
-            "PDF417 not found"
+            "No PDF417 barcode found"
           );
 
         }
@@ -380,6 +352,7 @@ Depot Access Scanner
 </h1>
 
 
+
 <hr/>
 
 
@@ -391,12 +364,24 @@ Employee QR Scanner
 <div id="qr-reader"></div>
 
 
+<br/>
+
+
+<label>
+Upload QR Image:
+
 <input
 type="file"
 accept="image/*"
 capture="environment"
 onChange={scanQrImage}
 />
+
+</label>
+
+
+<div id="qr-image-reader"></div>
+
 
 
 
@@ -423,20 +408,23 @@ Company:
 {selectedUser.company}
 </p>
 
+<p>
+Vehicle:
+{" "}
+{selectedUser.vehicle || "None"}
+</p>
+
 </div>
 
 }
 
 
 
-
 <hr/>
 
 
-
-
 <h2>
-Smart ID Scanner
+South African Smart ID Scanner
 </h2>
 
 
@@ -446,7 +434,6 @@ accept="image/*"
 capture="environment"
 onChange={scanSmartId}
 />
-
 
 
 
@@ -463,12 +450,12 @@ Smart ID Information
 <p>Names: {idData.names}</p>
 <p>Sex: {idData.sex}</p>
 <p>Nationality: {idData.nationality}</p>
-<p>ID: {idData.idNumber}</p>
-<p>DOB: {idData.dateOfBirth}</p>
-<p>Country: {idData.countryOfBirth}</p>
-<p>Issue: {idData.dateOfIssue}</p>
-<p>Control: {idData.controlNumber}</p>
-<p>Barcode Ref: {idData.barcodeReference}</p>
+<p>ID Number: {idData.idNumber}</p>
+<p>Date of Birth: {idData.dateOfBirth}</p>
+<p>Country of Birth: {idData.countryOfBirth}</p>
+<p>Date of Issue: {idData.dateOfIssue}</p>
+<p>Control Number: {idData.controlNumber}</p>
+<p>Barcode Reference: {idData.barcodeReference}</p>
 
 </div>
 
@@ -476,14 +463,11 @@ Smart ID Information
 
 
 
-
 <hr/>
 
 
-
-
 <h2>
-Generic PDF417 Debug Scanner
+Generic PDF417 Scanner
 </h2>
 
 
@@ -496,43 +480,57 @@ onChange={scanGenericPdf417}
 
 
 
+{
+genericPdfResult &&
+
+<div>
+
 <h3>
-Decoded Text
+PDF417 Raw Result
 </h3>
 
 
 <textarea
-
 value={genericPdfResult}
-
 readOnly
-
 style={{
 width:"100%",
-height:"150px"
+height:"200px"
 }}
-
 />
 
 
+</div>
+
+}
+
+
+
+
+{
+debugResult &&
+
+<div>
 
 <h3>
-ZXing Debug
+ZXing Debug Output
 </h3>
 
 
 <textarea
-
 value={debugResult}
-
 readOnly
-
 style={{
 width:"100%",
 height:"300px"
 }}
-
 />
+
+
+</div>
+
+}
+
 
 
 
