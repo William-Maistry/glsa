@@ -399,9 +399,11 @@
 
 
 
-// PDF417Scanner.jsx
+
+
+
 import { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader, NotFoundException } from "@zxing/library";
+import { BrowserPDF417Reader, NotFoundException } from "@zxing/library";
 
 const App = () => {
   const videoRef = useRef(null);
@@ -409,42 +411,58 @@ const App = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const codeReader = new BrowserMultiFormatReader();
+    const codeReader = new BrowserPDF417Reader();
 
-    // Request camera access and start scanning
     codeReader
       .listVideoInputDevices()
-      .then((videoInputDevices) => {
-        if (videoInputDevices.length === 0) {
-          setError("No camera devices found.");
+      .then((devices) => {
+        if (devices.length === 0) {
+          setError("No camera found.");
           return;
         }
 
-        // Use the back camera if available
-        const backCamera = videoInputDevices.find((device) =>
-          device.label.toLowerCase().includes("back")
-        );
-        const selectedDeviceId = backCamera
-          ? backCamera.deviceId
-          : videoInputDevices[0].deviceId;
+        const backCam =
+          devices.find((d) => d.label.toLowerCase().includes("back")) ||
+          devices[0];
 
-        codeReader.decodeFromVideoDevice(
-          selectedDeviceId,
-          videoRef.current,
-          (result, err) => {
-            if (result) {
-              setResult(result.getText());
-              setError("");
-            }
-            if (err && !(err instanceof NotFoundException)) {
-              setError(err.message || "Unknown error occurred.");
-            }
+        // Request higher resolution for better PDF417 decoding
+        const constraints = {
+          video: {
+            deviceId: backCam.deviceId,
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            focusMode: "continuous"
           }
-        );
+        };
+
+        navigator.mediaDevices
+          .getUserMedia(constraints)
+          .then((stream) => {
+            videoRef.current.srcObject = stream;
+            videoRef.current.setAttribute("playsinline", true);
+            videoRef.current.play();
+
+            const scanLoop = () => {
+              codeReader
+                .decodeOnceFromVideoDevice(backCam.deviceId, videoRef.current)
+                .then((res) => {
+                  setResult(res.getText());
+                  setError("");
+                })
+                .catch((err) => {
+                  if (!(err instanceof NotFoundException)) {
+                    setError(err.message);
+                  }
+                  requestAnimationFrame(scanLoop);
+                });
+            };
+            scanLoop();
+          })
+          .catch((err) => setError(err.message));
       })
       .catch((err) => setError(err.message));
 
-    // Cleanup on unmount
     return () => {
       codeReader.reset();
     };
@@ -452,14 +470,14 @@ const App = () => {
 
   return (
     <div style={{ textAlign: "center" }}>
-      <h2>PDF417 Barcode Scanner</h2>
+      <h2>PDF417 Scanner (SA ID)</h2>
       <video
         ref={videoRef}
         style={{ width: "100%", maxWidth: "500px", border: "1px solid #ccc" }}
       />
       {result && (
         <p style={{ color: "green" }}>
-          <strong>Scanned Data:</strong> {result}
+          <strong>Decoded:</strong> {result}
         </p>
       )}
       {error && <p style={{ color: "red" }}>{error}</p>}
