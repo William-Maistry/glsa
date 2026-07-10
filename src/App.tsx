@@ -11,25 +11,18 @@ import users from "./data/users.json";
 
 function App() {
 
-
   const [_userId, setUserId] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
-
   const [idScanResult, setIdScanResult] = useState("");
-  const [idScannerActive, setIdScannerActive] = useState(false);
+  const [idDetails, setIdDetails] = useState<any>(null);
+
+  const [_idScannerActive, setIdScannerActive] = useState(false);
   const [scanStatus, setScanStatus] = useState("");
 
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const videoRef =
-    useRef<HTMLVideoElement | null>(null);
-
-
-  const qrScannerRef =
-    useRef<any>(null);
-
-
-
+  const qrScannerRef = useRef<any>(null);
 
 
 
@@ -51,9 +44,7 @@ function App() {
       );
 
 
-
-    qrScannerRef.current =
-      scanner;
+    qrScannerRef.current = scanner;
 
 
 
@@ -65,13 +56,11 @@ function App() {
         setUserId(decodedText);
 
 
-
         const user =
           users.find(
             person =>
               person.qrCode === decodedText
           );
-
 
 
         setSelectedUser(user);
@@ -88,10 +77,8 @@ function App() {
 
     return ()=>{
 
-
       scanner.clear()
         .catch(()=>{});
-
 
     };
 
@@ -103,11 +90,8 @@ function App() {
 
 
 
-
-
-
   // ==========================
-  // SMART ID BARCODE SCANNER
+  // SMART ID SCANNER
   // ==========================
 
   const startIdScanner = async()=>{
@@ -115,57 +99,42 @@ function App() {
 
     setIdScannerActive(true);
 
-
     setScanStatus(
       "Starting Smart ID scanner..."
     );
 
 
 
-
-    // stop employee QR scanner
-
     if(qrScannerRef.current){
 
-
-      try{
+      try {
 
         await qrScannerRef.current.clear();
 
       }
-      catch{}
+      catch {}
 
     }
 
 
 
-
-
-
-    const hints =
-      new Map();
+    const hints = new Map();
 
 
 
     hints.set(
       DecodeHintType.POSSIBLE_FORMATS,
       [
-
         BarcodeFormat.PDF_417,
-
         BarcodeFormat.CODE_39
-
       ]
     );
-
 
 
     hints.set(
       DecodeHintType.TRY_HARDER,
       true
     );
-
-
 
 
 
@@ -176,69 +145,51 @@ function App() {
 
 
 
-
-
-
-    try{
+    try {
 
 
       await reader.decodeFromConstraints(
 
         {
-
-
           video:{
-
-
-            facingMode:
-              "environment",
-
-
+            facingMode:"environment",
             width:{
               ideal:1920
             },
-
-
             height:{
               ideal:1080
             }
-
-
           }
-
-
         },
 
 
         videoRef.current!,
 
 
-
         (result)=>{
-
-
-          setScanStatus(
-            "Searching for Smart ID barcode..."
-          );
-
 
 
           if(result){
 
 
-            const data =
+            const raw =
               result.getText();
 
 
 
             setScanStatus(
-              "Smart ID barcode detected!"
+              "Smart ID scanned"
+            );
+
+
+            setIdScanResult(
+              raw
             );
 
 
 
-            setIdScanResult(
-              data
+            setIdDetails(
+              extractSmartIdDetails(raw)
             );
 
 
@@ -260,12 +211,110 @@ function App() {
         error.message
       );
 
-
     }
 
 
   };
 
+
+
+
+
+
+
+  // ==========================
+  // SMART ID DATA EXTRACTION
+  // ==========================
+
+  const extractSmartIdDetails =
+    (data:string)=>{
+
+
+      const findValue =
+        (patterns:string[])=>{
+
+
+          for(const pattern of patterns){
+
+
+            const match =
+              data.match(
+                new RegExp(
+                  pattern,
+                  "i"
+                )
+              );
+
+
+            if(match){
+
+              return match[1].trim();
+
+            }
+
+          }
+
+
+          return "";
+
+        };
+
+
+
+      return {
+
+
+        idNumber:
+          findValue([
+            "ID(?:NUMBER)?[:| ]+([0-9]{13})",
+            "([0-9]{13})"
+          ]),
+
+
+
+        surname:
+          findValue([
+            "SURNAME[:| ]+(.+)",
+            "LASTNAME[:| ]+(.+)"
+          ]),
+
+
+
+        firstNames:
+          findValue([
+            "FIRST(?:NAMES|NAME)[:| ]+(.+)",
+            "NAMES[:| ]+(.+)"
+          ]),
+
+
+
+        dateOfBirth:
+          findValue([
+            "DATE.?OF.?BIRTH[:| ]+(.+)",
+            "DOB[:| ]+(.+)"
+          ]),
+
+
+
+        gender:
+          findValue([
+            "SEX[:| ]+(.+)",
+            "GENDER[:| ]+(.+)"
+          ]),
+
+
+
+        nationality:
+          findValue([
+            "NATIONALITY[:| ]+(.+)",
+            "CITIZENSHIP[:| ]+(.+)"
+          ])
+
+
+      };
+
+
+    };
 
 
 
@@ -281,12 +330,9 @@ function App() {
     }}>
 
 
-
       <h1>
         Depot Access Scanner
       </h1>
-
-
 
 
 
@@ -295,9 +341,7 @@ function App() {
       </h2>
 
 
-
       <div id="reader"></div>
-
 
 
 
@@ -306,15 +350,11 @@ function App() {
       {
         selectedUser && (
 
-
           <div>
-
 
             <h3>
               Employee Found
             </h3>
-
-
 
             <p>
               Name:
@@ -325,7 +365,6 @@ function App() {
             </p>
 
 
-
             <p>
               Company:
               {" "}
@@ -333,21 +372,10 @@ function App() {
             </p>
 
 
-
-            <p>
-              Vehicle:
-              {" "}
-              {selectedUser.vehicle || "None"}
-            </p>
-
-
-
           </div>
-
 
         )
       }
-
 
 
 
@@ -361,44 +389,23 @@ function App() {
 
 
 
-
       <h2>
         South African Smart ID Scanner
       </h2>
 
 
+      <button
 
-      <p>
-        Scan only the PDF417 barcode on the back of the Smart ID card.
-      </p>
+        onClick={startIdScanner}
 
+        style={{
+          padding:"12px",
+          fontSize:"18px"
+        }}
 
-
-
-
-      {
-        !idScannerActive && (
-
-
-          <button
-
-            onClick={startIdScanner}
-
-            style={{
-              padding:"12px",
-              fontSize:"18px"
-            }}
-
-          >
-
-            Start ID Scanner
-
-          </button>
-
-
-        )
-      }
-
+      >
+        Start ID Scanner
+      </button>
 
 
 
@@ -412,7 +419,6 @@ function App() {
 
 
 
-
       <video
 
         ref={videoRef}
@@ -420,9 +426,7 @@ function App() {
         style={{
 
           width:"100%",
-          maxWidth:"500px",
-          height:"300px",
-          objectFit:"cover"
+          maxWidth:"500px"
 
         }}
 
@@ -435,14 +439,74 @@ function App() {
 
 
       {
-        idScanResult && (
-
+        idDetails && (
 
           <div>
 
+            <h3>
+              ID Details
+            </h3>
+
+
+            <p>
+              ID Number:
+              {" "}
+              {idDetails.idNumber}
+            </p>
+
+
+            <p>
+              First Names:
+              {" "}
+              {idDetails.firstNames}
+            </p>
+
+
+            <p>
+              Surname:
+              {" "}
+              {idDetails.surname}
+            </p>
+
+
+            <p>
+              Date Of Birth:
+              {" "}
+              {idDetails.dateOfBirth}
+            </p>
+
+
+            <p>
+              Gender:
+              {" "}
+              {idDetails.gender}
+            </p>
+
+
+            <p>
+              Nationality:
+              {" "}
+              {idDetails.nationality}
+            </p>
+
+
+          </div>
+
+        )
+      }
+
+
+
+
+
+
+      {
+        idScanResult && (
+
+          <div>
 
             <h3>
-              Smart ID Raw Data
+              Raw Barcode Data
             </h3>
 
 
@@ -453,23 +517,16 @@ function App() {
               readOnly
 
               style={{
-
                 width:"100%",
-                height:"250px"
-
+                height:"200px"
               }}
 
             />
 
-
-
           </div>
-
 
         )
       }
-
-
 
 
 
