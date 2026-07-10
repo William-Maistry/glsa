@@ -401,100 +401,60 @@
 
 
 
-import React, { useEffect, useRef, useState } from "react";
-import {
-  BrowserPDF417Reader,
-  NotFoundException,
-  Result
-} from "@zxing/library";
 
-const App: React.FC = () => {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [result, setResult] = useState<string>("");
-  const [error, setError] = useState<string>("");
+
+
+
+import { useEffect, useRef, useState } from "react";
+import { BrowserMultiFormatReader } from "@zxing/browser";
+
+export default function App() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [result, setResult] = useState("");
 
   useEffect(() => {
-    const codeReader = new BrowserPDF417Reader();
+    const codeReader = new BrowserMultiFormatReader();
+    let controls: any;
 
-    const initScanner = async () => {
-      try {
-        const devices = await codeReader.listVideoInputDevices();
-        if (devices.length === 0) {
-          setError("No camera devices found.");
-          return;
-        }
+    const startScanner = async () => {
+      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
 
-        // Prefer back camera
-        const backCam =
-          devices.find((d) => d.label.toLowerCase().includes("back")) ||
-          devices[0];
+      const backCamera =
+        devices.find((device) =>
+          device.label.toLowerCase().includes("back")
+        ) ?? devices[0];
 
-        // Request high resolution for better PDF417 decoding
-        const constraints: MediaStreamConstraints = {
-          video: {
-            deviceId: backCam.deviceId,
-            facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
+      controls = await codeReader.decodeFromVideoDevice(
+        backCamera?.deviceId,
+        videoRef.current!,
+        (result, _error) => {
+          if (result) {
+            setResult(result.getText());
           }
-        };
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.setAttribute("playsinline", "true");
-          await videoRef.current.play();
         }
-
-        // Continuous scanning loop
-        const scanLoop = async () => {
-          try {
-            const res: Result = await codeReader.decodeOnceFromVideoDevice(
-              backCam.deviceId,
-              videoRef.current!
-            );
-            setResult(res.getText());
-            setError("");
-          } catch (err) {
-            if (!(err instanceof NotFoundException)) {
-              setError((err as Error).message);
-            }
-            requestAnimationFrame(scanLoop);
-          }
-        };
-
-        scanLoop();
-      } catch (err) {
-        setError((err as Error).message);
-      }
+      );
     };
 
-    initScanner();
+    startScanner();
 
     return () => {
-      codeReader.reset();
+      if (controls) {
+        controls.stop();
+      }
     };
   }, []);
 
   return (
-    <div style={{ textAlign: "center" }}>
-      <h2>PDF417 Scanner (SA ID)</h2>
+    <div>
       <video
         ref={videoRef}
-        style={{
-          width: "100%",
-          maxWidth: "500px",
-          border: "1px solid #ccc"
-        }}
+        style={{ width: "100%" }}
+        muted
+        playsInline
       />
-      {result && (
-        <p style={{ color: "green" }}>
-          <strong>Decoded:</strong> {result}
-        </p>
-      )}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <p>Scanned:</p>
+      <pre>{result}</pre>
     </div>
   );
-};
-
-export default App;
+}
