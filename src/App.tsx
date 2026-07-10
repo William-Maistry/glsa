@@ -1,92 +1,59 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
-import { BrowserMultiFormatReader } from "@zxing/browser";
-import {
-  BarcodeFormat,
-  DecodeHintType
-} from "@zxing/library";
-
 import users from "./data/users.json";
 
-
 function App() {
-
-
   const [_userId, setUserId] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
-
-  const [smartIdResult, setSmartIdResult] = useState("");
+  const [idScanResult, setIdScanResult] = useState("");
   const [idScannerActive, setIdScannerActive] = useState(false);
-  const [idStatus, setIdStatus] = useState("");
 
 
-
-  const qrScannerRef = useRef<any>(null);
-  const idVideoRef = useRef<HTMLVideoElement | null>(null);
-
-
-
-
-
-  // =================================
-  // EMPLOYEE QR SCANNER
-  // =================================
+  // ==========================
+  // EXISTING QR EMPLOYEE SCANNER
+  // ==========================
 
   useEffect(() => {
 
-
-    const scanner =
-      new Html5QrcodeScanner(
-        "qr-reader",
-        {
-          fps:10,
-          qrbox:250
-        },
-        false
-      );
-
-
-    qrScannerRef.current = scanner;
-
+    const scanner = new Html5QrcodeScanner(
+      "reader",
+      {
+        fps: 10,
+        qrbox: 250
+      },
+      false
+    );
 
 
     scanner.render(
 
-      (decodedText)=>{
-
+      (decodedText) => {
 
         setUserId(decodedText);
 
 
-
-        const user =
-          users.find(
-            person =>
-              person.qrCode === decodedText
-          );
-
+        const user = users.find(
+          (person) => person.qrCode === decodedText
+        );
 
 
         setSelectedUser(user);
 
 
+        scanner.clear();
+
       },
 
-
-      ()=>{}
+      (_error) => {
+        // ignore errors
+      }
 
     );
 
 
-
-    return ()=>{
-
-
-      scanner.clear()
-        .catch(()=>{});
-
-
+    return () => {
+      scanner.clear().catch(() => {});
     };
 
 
@@ -94,118 +61,58 @@ function App() {
 
 
 
+  // ==========================
+  // SMART ID CARD SCANNER
+  // ==========================
 
-
-
-
-  // =================================
-  // SMART ID BARCODE SCANNER
-  // =================================
-
-  const startSmartIdScanner = async()=>{
-
+  const startIdScanner = () => {
 
     setIdScannerActive(true);
 
-    setIdStatus(
-      "Starting Smart ID scanner..."
-    );
 
-
-
-    const hints = new Map();
-
-
-
-    hints.set(
-      DecodeHintType.POSSIBLE_FORMATS,
-      [
-        BarcodeFormat.PDF_417,
-        BarcodeFormat.CODE_39
-      ]
-    );
-
-
-    hints.set(
-      DecodeHintType.TRY_HARDER,
-      true
-    );
-
-
-
-    const reader =
-      new BrowserMultiFormatReader(
-        hints
-      );
-
-
-
-    try {
-
-
-      await reader.decodeFromVideoDevice(
-
-        undefined,
-
-        idVideoRef.current!,
-
-        (result, _error)=>{
-
-
-          if(result){
-
-
-            const data =
-              result.getText();
-
-
-
-            setIdStatus(
-              "Barcode detected"
-            );
-
-
-            setSmartIdResult(
-              data
-            );
-
-
-          }
-
-
+    const idScanner = new Html5QrcodeScanner(
+      "id-reader",
+      {
+        fps: 10,
+        qrbox: {
+          width: 300,
+          height: 150
         }
+      },
+      false
+    );
 
 
-      );
+    idScanner.render(
+
+      (decodedText) => {
 
 
-    }
-    catch(error:any){
+        setIdScanResult(decodedText);
 
 
-      setIdStatus(
-        "Camera error: " +
-        error.message
-      );
+        idScanner.clear()
+          .catch(() => {});
 
 
-    }
+      },
 
+
+      (_error) => {
+
+        // ignore scanning errors
+
+      }
+
+    );
 
   };
 
 
 
-
-
-
-
-
   return (
 
-    <div style={{
-      padding:"30px"
-    }}>
+    <div style={{padding:"30px"}}>
 
 
       <h1>
@@ -214,63 +121,52 @@ function App() {
 
 
 
-
-
-      {/* =====================
-          EMPLOYEE QR
-      ====================== */}
-
-
       <h2>
         Employee QR Scanner
       </h2>
 
 
-      <div id="qr-reader"></div>
+      <div id="reader"></div>
 
 
 
 
-      {
-        selectedUser && (
+      {selectedUser && (
 
-          <div>
+        <div>
 
-
-            <h3>
-              Employee Found
-            </h3>
+          <h2>
+            User Found
+          </h2>
 
 
-            <p>
-              Name:
-              {" "}
-              {selectedUser.firstName}
-              {" "}
-              {selectedUser.lastName}
-            </p>
+          <p>
+            Name:
+            <strong>
+              {selectedUser.firstName} {selectedUser.lastName}
+            </strong>
+          </p>
 
 
-            <p>
-              Company:
-              {" "}
+          <p>
+            Company:
+            <strong>
               {selectedUser.company}
-            </p>
+            </strong>
+          </p>
 
 
-            <p>
-              Vehicle:
-              {" "}
+          <p>
+            Vehicle:
+            <strong>
               {selectedUser.vehicle || "None"}
-            </p>
+            </strong>
+          </p>
 
 
-          </div>
+        </div>
 
-        )
-      }
-
-
+      )}
 
 
 
@@ -280,107 +176,56 @@ function App() {
 
 
 
-
-
-
-
-
-      {/* =====================
-          SMART ID
-      ====================== */}
-
-
-
       <h2>
-        South African Smart ID Barcode Scanner
+        South African ID Smart Card Test Scanner
       </h2>
 
 
       <p>
-        Scan the large PDF417 barcode on the back of the Smart ID card.
+        Scan the barcode on the back of the Smart ID Card.
       </p>
 
 
 
-      {
-        !idScannerActive && (
+      {!idScannerActive && (
 
-          <button
+        <button
+          onClick={startIdScanner}
+          style={{
+            padding:"12px",
+            fontSize:"18px"
+          }}
+        >
+          Start ID Card Scanner
+        </button>
 
-            onClick={startSmartIdScanner}
-
-            style={{
-              padding:"12px",
-              fontSize:"18px"
-            }}
-
-          >
-
-            Start Smart ID Scanner
-
-          </button>
-
-        )
-      }
+      )}
 
 
 
-
-
-      <p>
-        Status:
-        {" "}
-        {idStatus}
-      </p>
-
-
-
-
-
-
-      <video
-
-        ref={idVideoRef}
-
-        style={{
-
-          width:"100%",
-          maxWidth:"500px",
-          height:"300px",
-          objectFit:"cover"
-
-        }}
-
-      />
-
-
-
+      <div id="id-reader"></div>
 
 
 
       {
-        smartIdResult && (
+        idScanResult && (
 
           <div>
 
-
             <h3>
-              Smart ID Barcode Result
+              ID Scan Result
             </h3>
-
 
 
             <textarea
 
-              value={smartIdResult}
+              value={idScanResult}
 
               readOnly
 
               style={{
-
                 width:"100%",
                 height:"200px"
-
               }}
 
             />
@@ -390,8 +235,6 @@ function App() {
 
         )
       }
-
-
 
 
 
