@@ -17,6 +17,9 @@ function App() {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
+  const qrScannerRef = useRef<any>(null);
+  const idControlsRef = useRef<any>(null);
+
 
 
   // ==========================
@@ -24,6 +27,7 @@ function App() {
   // ==========================
 
   useEffect(() => {
+
 
     const scanner = new Html5QrcodeScanner(
       "reader",
@@ -35,9 +39,14 @@ function App() {
     );
 
 
+    qrScannerRef.current = scanner;
+
+
+
     scanner.render(
 
       (decodedText) => {
+
 
         setUserId(decodedText);
 
@@ -50,15 +59,13 @@ function App() {
         setSelectedUser(user);
 
 
-        scanner.clear()
-          .catch(() => {});
-
       },
 
 
       () => {}
 
     );
+
 
 
     return () => {
@@ -77,17 +84,36 @@ function App() {
 
 
   // ==========================
-  // SMART ID CARD SCANNER
+  // ID BARCODE SCANNER
   // ==========================
 
   const startIdScanner = async () => {
 
 
     setIdScannerActive(true);
-    setScanStatus("Opening camera...");
+    setScanStatus(
+      "Starting ID scanner..."
+    );
 
 
-    const reader = new BrowserMultiFormatReader();
+
+    // stop QR camera first
+
+    if (qrScannerRef.current) {
+
+      try {
+
+        await qrScannerRef.current.clear();
+
+      }
+      catch {}
+
+    }
+
+
+
+    const reader =
+      new BrowserMultiFormatReader();
 
 
 
@@ -97,18 +123,17 @@ function App() {
       const controls =
         await reader.decodeFromConstraints(
 
-
           {
             video: {
 
               facingMode: "environment",
 
-              width: {
-                ideal: 1920
+              width:{
+                ideal:1920
               },
 
-              height: {
-                ideal: 1080
+              height:{
+                ideal:1080
               }
 
             }
@@ -121,39 +146,33 @@ function App() {
           (result) => {
 
 
-            if (result) {
+            if(result){
 
 
-              const rawData =
+              const raw =
                 result.getText();
 
 
 
               setScanStatus(
-                "Barcode detected!"
+                "Barcode detected"
               );
 
 
 
-              setIdScanResult(rawData);
+              setIdScanResult(
+                raw
+              );
 
 
 
               setIdDetails(
-                parseSouthAfricanId(rawData)
+                parseSouthAfricanId(raw)
               );
 
 
 
               controls.stop();
-
-
-            } else {
-
-
-              setScanStatus(
-                "Searching for barcode..."
-              );
 
 
             }
@@ -165,7 +184,14 @@ function App() {
         );
 
 
-    } catch(error) {
+
+      idControlsRef.current =
+        controls;
+
+
+
+    }
+    catch(error){
 
 
       setScanStatus(
@@ -183,26 +209,22 @@ function App() {
 
 
 
-
   // ==========================
-  // ID BARCODE PARSER
+  // SIMPLE ID DATA PARSER
   // ==========================
 
   const parseSouthAfricanId = (data:string) => {
 
 
-    const extract = (key:string) => {
-
-
-      const regex =
-        new RegExp(
-          `${key}([^\\n\\r]+)`
-        );
+    const extract = (key:string)=>{
 
 
       const match =
-        data.match(regex);
-
+        data.match(
+          new RegExp(
+            `${key}([^\\n\\r]+)`
+          )
+        );
 
 
       return match
@@ -218,19 +240,24 @@ function App() {
       surname:
         extract("DCS"),
 
+
       firstNames:
         extract("DAC"),
+
 
       dateOfBirth:
         extract("DBB"),
 
+
       gender:
         extract("DBC"),
+
 
       nationality:
         extract("DCT")
 
     };
+
 
   };
 
@@ -321,13 +348,12 @@ function App() {
 
 
       <h2>
-        South African Smart ID Card Scanner
+        South African ID Card Scanner
       </h2>
 
 
-
       <p>
-        Scan the barcode on the back of the Smart ID Card.
+        Scan the barcode on the back of the ID card.
       </p>
 
 
@@ -359,7 +385,6 @@ function App() {
 
 
 
-
       <p>
         Status: {scanStatus}
       </p>
@@ -376,8 +401,7 @@ function App() {
         style={{
 
           width:"100%",
-          maxWidth:"500px",
-          marginTop:"20px"
+          maxWidth:"500px"
 
         }}
 
@@ -400,7 +424,6 @@ function App() {
             </h3>
 
 
-
             <textarea
 
               value={idScanResult}
@@ -408,10 +431,8 @@ function App() {
               readOnly
 
               style={{
-
                 width:"100%",
                 height:"150px"
-
               }}
 
             />
@@ -421,7 +442,6 @@ function App() {
 
         )
       }
-
 
 
 
@@ -440,13 +460,11 @@ function App() {
             </h3>
 
 
-
             <p>
               First Names:
               {" "}
               {idDetails.firstNames}
             </p>
-
 
 
             <p>
@@ -456,7 +474,6 @@ function App() {
             </p>
 
 
-
             <p>
               Date Of Birth:
               {" "}
@@ -464,13 +481,11 @@ function App() {
             </p>
 
 
-
             <p>
               Gender:
               {" "}
               {idDetails.gender}
             </p>
-
 
 
             <p>
