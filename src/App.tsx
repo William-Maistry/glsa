@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import type { IScannerControls } from "@zxing/browser";
 import {
   BarcodeFormat,
   DecodeHintType,
@@ -17,11 +16,11 @@ interface DriverLicence {
 
 function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const controlsRef = useRef<IScannerControls | null>(null);
+  const controlsRef = useRef<any>(null);
 
   const [scanning, setScanning] = useState(true);
   const [licence, setLicence] = useState<DriverLicence | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
     const hints = new Map();
@@ -38,12 +37,12 @@ function App() {
         const devices =
           await BrowserMultiFormatReader.listVideoInputDevices();
 
-        if (devices.length === 0) {
-          setError("No camera detected");
+        if (!devices.length) {
+          setError("No camera found");
           return;
         }
 
-        const backCamera =
+        const camera =
           devices.find((device) =>
             device.label.toLowerCase().includes("back")
           ) ?? devices[0];
@@ -51,27 +50,29 @@ function App() {
 
         const controls =
           await reader.decodeFromVideoDevice(
-            backCamera.deviceId,
+            camera.deviceId,
             videoRef.current!,
             (result, _error) => {
 
               if (result) {
-                const data = result.getText();
+                const rawData = result.getText();
 
                 console.log(
-                  "PDF417 DATA:",
-                  data
+                  "PDF417 RAW DATA:",
+                  rawData
                 );
 
+
                 setLicence(
-                  parseLicence(data)
+                  parseLicence(rawData)
                 );
+
 
                 setScanning(false);
 
+
                 controls.stop();
               }
-
             }
           );
 
@@ -81,8 +82,9 @@ function App() {
 
       } catch (err) {
         console.error(err);
+
         setError(
-          "Unable to access camera"
+          "Camera permission denied or camera unavailable"
         );
       }
     }
@@ -128,22 +130,23 @@ function App() {
     key: string
   ): string | undefined {
 
-    const index =
+    const position =
       data.indexOf(key);
 
-    if (index === -1) {
+
+    if (position === -1) {
       return undefined;
     }
 
 
     return data
-      .substring(index + key.length)
-      .split(/[\n\r]/)[0]
+      .substring(position + key.length)
+      .split(/[\r\n]/)[0]
       .trim();
   }
 
 
-  function scanAgain() {
+  function restartScanner() {
     window.location.reload();
   }
 
@@ -158,24 +161,23 @@ function App() {
     >
 
       <h1>
-        SA Driver Licence PDF417 Scanner
+        South African Licence Scanner
       </h1>
 
 
       {scanning && (
         <>
           <p>
-            Align the PDF417 barcode with the camera
+            Point the camera at the PDF417 barcode
           </p>
 
 
           <div
             style={{
-              width: "100%",
               maxWidth: 500,
               margin: "auto",
               border: "3px solid green",
-              borderRadius: 12,
+              borderRadius: 10,
               overflow: "hidden",
             }}
           >
@@ -190,6 +192,7 @@ function App() {
           </div>
         </>
       )}
+
 
 
       {error && (
@@ -214,43 +217,43 @@ function App() {
         >
 
           <h2>
-            Licence Details
+            Licence Data
           </h2>
 
 
           <p>
-            <b>ID Number:</b>{" "}
-            {licence.idNumber ?? "Not found"}
+            <strong>ID Number:</strong>{" "}
+            {licence.idNumber || "Not found"}
           </p>
 
 
           <p>
-            <b>Surname:</b>{" "}
-            {licence.surname ?? "Not found"}
+            <strong>Surname:</strong>{" "}
+            {licence.surname || "Not found"}
           </p>
 
 
           <p>
-            <b>Names:</b>{" "}
-            {licence.names ?? "Not found"}
+            <strong>Names:</strong>{" "}
+            {licence.names || "Not found"}
           </p>
 
 
           <p>
-            <b>Date of Birth:</b>{" "}
-            {licence.dateOfBirth ?? "Not found"}
+            <strong>Date of Birth:</strong>{" "}
+            {licence.dateOfBirth || "Not found"}
           </p>
 
 
           <p>
-            <b>Expiry Date:</b>{" "}
-            {licence.expiryDate ?? "Not found"}
+            <strong>Expiry Date:</strong>{" "}
+            {licence.expiryDate || "Not found"}
           </p>
 
 
           <details>
             <summary>
-              Raw Barcode Data
+              Raw PDF417 Data
             </summary>
 
             <pre
@@ -266,9 +269,9 @@ function App() {
 
 
           <button
-            onClick={scanAgain}
+            onClick={restartScanner}
           >
-            Scan Another Licence
+            Scan Another
           </button>
 
         </div>
