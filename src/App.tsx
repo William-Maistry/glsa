@@ -407,121 +407,145 @@ import { BrowserPDF417Reader } from "@zxing/browser";
 
 export default function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
 
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
+  const [image, setImage] = useState<string | null>(null);
 
   useEffect(() => {
-    const reader = new BrowserPDF417Reader();
-
-    let controls: any;
-
-    const startScanner = async () => {
-      try {
-        setError("");
-
-        controls = await reader.decodeFromConstraints(
-          {
-            video: {
-              facingMode: {
-                ideal: "environment",
-              },
-              width: {
-                ideal: 1920,
-              },
-              height: {
-                ideal: 1080,
-              },
-            },
-          },
-          videoRef.current!,
-          (scanResult, _scanError) => {
-            if (scanResult) {
-              console.log("PDF417 DATA:");
-              console.log(scanResult.getText());
-
-              setResult(scanResult.getText());
-            }
-          }
-        );
-      } catch (err: any) {
-        console.error("Scanner error:", err);
-        setError(err.message || "Could not start camera");
-      }
-    };
-
-    startScanner();
+    startCamera();
 
     return () => {
-      if (controls) {
-        controls.stop();
-      }
+      stopCamera();
     };
   }, []);
 
+  let controls: any;
+  const reader = new BrowserPDF417Reader();
+
+  async function startCamera() {
+    try {
+      setError("");
+
+      controls = await reader.decodeFromConstraints(
+        {
+          video: {
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        },
+        videoRef.current!,
+        (scanResult) => {
+          if (scanResult) {
+            console.log("Camera result:", scanResult.getText());
+            setResult(scanResult.getText());
+          }
+        }
+      );
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
+  function stopCamera() {
+    if (controls) {
+      controls.stop();
+    }
+  }
+
+  async function handleImageUpload(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const imageUrl = URL.createObjectURL(file);
+
+    setImage(imageUrl);
+    setError("");
+
+    try {
+      const img = new Image();
+
+      img.onload = async () => {
+        try {
+          const result = await reader.decodeFromImageElement(img);
+
+          console.log("Image result:", result.getText());
+          setResult(result.getText());
+        } catch (err: any) {
+          console.error(err);
+          setError("No PDF417 barcode found in image");
+        }
+      };
+
+      img.src = imageUrl;
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
   return (
-    <div
-      style={{
-        padding: 20,
-        fontFamily: "Arial",
-      }}
-    >
+    <div style={{ padding: 20 }}>
       <h1>PDF417 Scanner</h1>
 
-      <div
+      <h3>Camera Scanner</h3>
+
+      <video
+        ref={videoRef}
+        muted
+        playsInline
         style={{
-          position: "relative",
+          width: "100%",
           maxWidth: 600,
+          height: 400,
+          objectFit: "cover",
+          background: "black",
         }}
-      >
-        <video
-          ref={videoRef}
-          muted
-          playsInline
+      />
+
+      <hr />
+
+      <h3>Scan From Image</h3>
+
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleImageUpload}
+      />
+
+      {image && (
+        <img
+          ref={imageRef}
+          src={image}
+          alt="Uploaded"
           style={{
             width: "100%",
-            height: 450,
-            objectFit: "cover",
-            background: "black",
-            borderRadius: 12,
+            maxWidth: 600,
+            marginTop: 20,
           }}
         />
-
-        {/* Scan guide */}
-        <div
-          style={{
-            position: "absolute",
-            top: "35%",
-            left: "10%",
-            width: "80%",
-            height: 100,
-            border: "3px solid red",
-            pointerEvents: "none",
-          }}
-        />
-      </div>
+      )}
 
       {error && (
-        <p
-          style={{
-            color: "red",
-          }}
-        >
+        <p style={{ color: "red" }}>
           {error}
         </p>
       )}
 
-      <h3>Scanned Data:</h3>
+      <h3>Result</h3>
 
       <pre
         style={{
           background: "#eee",
           padding: 15,
-          borderRadius: 8,
           whiteSpace: "pre-wrap",
         }}
       >
-        {result || "Waiting for PDF417..."}
+        {result || "Waiting..."}
       </pre>
     </div>
   );
