@@ -1,17 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 import users from "./data/users.json";
 
+
 function App() {
+
   const [_userId, setUserId] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const [idScanResult, setIdScanResult] = useState("");
+  const [idDetails, setIdDetails] = useState<any>(null);
   const [idScannerActive, setIdScannerActive] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
 
 
   // ==========================
-  // EXISTING QR EMPLOYEE SCANNER
+  // EMPLOYEE QR SCANNER
   // ==========================
 
   useEffect(() => {
@@ -41,19 +48,22 @@ function App() {
         setSelectedUser(user);
 
 
-        scanner.clear();
+        scanner.clear()
+          .catch(() => {});
 
       },
 
-      (_error) => {
-        // ignore errors
-      }
+
+      () => {}
 
     );
 
 
     return () => {
-      scanner.clear().catch(() => {});
+
+      scanner.clear()
+        .catch(() => {});
+
     };
 
 
@@ -61,63 +71,169 @@ function App() {
 
 
 
+
+
+
   // ==========================
-  // SMART ID CARD SCANNER
+  // SOUTH AFRICAN ID SCANNER
   // ==========================
 
-  const startIdScanner = () => {
+  const startIdScanner = async () => {
 
     setIdScannerActive(true);
 
 
-    const idScanner = new Html5QrcodeScanner(
-      "id-reader",
-      {
-        fps: 10,
-        qrbox: {
-          width: 300,
-          height: 150
-        }
-      },
-      false
-    );
+    const reader = new BrowserMultiFormatReader();
 
 
-    idScanner.render(
-
-      (decodedText) => {
+    try {
 
 
-        setIdScanResult(decodedText);
+      const controls =
+        await reader.decodeFromConstraints(
+
+          {
+            video: {
+              facingMode: "environment"
+            }
+          },
 
 
-        idScanner.clear()
-          .catch(() => {});
+          videoRef.current!,
 
 
-      },
+          (result) => {
 
 
-      (_error) => {
+            if (result) {
 
-        // ignore scanning errors
 
-      }
+              const rawData =
+                result.getText();
 
-    );
+
+
+              console.log(
+                "RAW ID BARCODE DATA:",
+                rawData
+              );
+
+
+
+              setIdScanResult(rawData);
+
+
+
+              setIdDetails(
+                parseSouthAfricanId(rawData)
+              );
+
+
+
+              controls.stop();
+
+
+            }
+
+
+          }
+
+        );
+
+
+
+    } catch(error) {
+
+
+      console.error(
+        "ID Scanner error:",
+        error
+      );
+
+
+    }
 
   };
 
 
 
+
+
+
+  // ==========================
+  // ID DATA PARSER
+  // ==========================
+
+  const parseSouthAfricanId = (data:string) => {
+
+
+    const extract = (key:string) => {
+
+
+      const regex =
+        new RegExp(
+          `${key}([^\\n\\r]+)`
+        );
+
+
+      const match =
+        data.match(regex);
+
+
+
+      return match
+        ? match[1].trim()
+        : "";
+
+    };
+
+
+
+    return {
+
+      surname:
+        extract("DCS"),
+
+
+      firstNames:
+        extract("DAC"),
+
+
+      dateOfBirth:
+        extract("DBB"),
+
+
+      gender:
+        extract("DBC"),
+
+
+      nationality:
+        extract("DCT")
+
+    };
+
+
+  };
+
+
+
+
+
+
+
+
   return (
 
-    <div style={{padding:"30px"}}>
+    <div style={{
+      padding:"30px"
+    }}>
 
 
       <h1>
         Depot Access Scanner
       </h1>
+
+
 
 
 
@@ -131,42 +247,51 @@ function App() {
 
 
 
-      {selectedUser && (
 
-        <div>
+      {
+        selectedUser && (
 
-          <h2>
-            User Found
-          </h2>
+          <div>
 
-
-          <p>
-            Name:
-            <strong>
-              {selectedUser.firstName} {selectedUser.lastName}
-            </strong>
-          </p>
+            <h2>
+              User Found
+            </h2>
 
 
-          <p>
-            Company:
-            <strong>
-              {selectedUser.company}
-            </strong>
-          </p>
+            <p>
+              Name:
+              {" "}
+              <strong>
+                {selectedUser.firstName}
+                {" "}
+                {selectedUser.lastName}
+              </strong>
+            </p>
 
 
-          <p>
-            Vehicle:
-            <strong>
-              {selectedUser.vehicle || "None"}
-            </strong>
-          </p>
+            <p>
+              Company:
+              {" "}
+              <strong>
+                {selectedUser.company}
+              </strong>
+            </p>
 
 
-        </div>
+            <p>
+              Vehicle:
+              {" "}
+              <strong>
+                {selectedUser.vehicle || "None"}
+              </strong>
+            </p>
 
-      )}
+
+          </div>
+
+        )
+      }
+
 
 
 
@@ -176,8 +301,11 @@ function App() {
 
 
 
+
+
+
       <h2>
-        South African ID Smart Card Test Scanner
+        South African Smart ID Card Scanner
       </h2>
 
 
@@ -187,23 +315,47 @@ function App() {
 
 
 
-      {!idScannerActive && (
-
-        <button
-          onClick={startIdScanner}
-          style={{
-            padding:"12px",
-            fontSize:"18px"
-          }}
-        >
-          Start ID Card Scanner
-        </button>
-
-      )}
 
 
+      {
+        !idScannerActive && (
 
-      <div id="id-reader"></div>
+          <button
+
+            onClick={startIdScanner}
+
+            style={{
+              padding:"12px",
+              fontSize:"18px"
+            }}
+
+          >
+
+            Start ID Scanner
+
+          </button>
+
+        )
+      }
+
+
+
+
+
+
+      <video
+
+        ref={videoRef}
+
+        style={{
+          width:"400px",
+          marginTop:"20px"
+        }}
+
+      />
+
+
+
 
 
 
@@ -213,7 +365,7 @@ function App() {
           <div>
 
             <h3>
-              ID Scan Result
+              Raw Barcode Data
             </h3>
 
 
@@ -225,7 +377,7 @@ function App() {
 
               style={{
                 width:"100%",
-                height:"200px"
+                height:"150px"
               }}
 
             />
@@ -235,6 +387,67 @@ function App() {
 
         )
       }
+
+
+
+
+
+
+
+      {
+        idDetails && (
+
+          <div>
+
+
+            <h3>
+              Extracted Details
+            </h3>
+
+
+
+            <p>
+              First Names:
+              {" "}
+              {idDetails.firstNames}
+            </p>
+
+
+            <p>
+              Surname:
+              {" "}
+              {idDetails.surname}
+            </p>
+
+
+            <p>
+              Date Of Birth:
+              {" "}
+              {idDetails.dateOfBirth}
+            </p>
+
+
+            <p>
+              Gender:
+              {" "}
+              {idDetails.gender}
+            </p>
+
+
+            <p>
+              Nationality:
+              {" "}
+              {idDetails.nationality}
+            </p>
+
+
+
+          </div>
+
+        )
+      }
+
+
 
 
 
