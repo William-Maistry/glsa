@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode";
 import {
   BrowserPDF417Reader,
-  BrowserMultiFormatReader
 } from "@zxing/browser";
+import { decodePdf417Raw } from "./Pdf417RawReader";
 
 import users from "./data/users.json";
 
@@ -259,108 +259,93 @@ function App() {
   // ===============================
 
 
-  async function scanGenericPdf417(
-    e:React.ChangeEvent<HTMLInputElement>
-  ){
+async function scanGenericPdf417(
+  e:React.ChangeEvent<HTMLInputElement>
+){
 
-    const file =
-      e.target.files?.[0];
-
-
-    if(!file)
-      return;
+  const file =
+    e.target.files?.[0];
 
 
-
-    const img =
-      new Image();
-
+  if(!file)
+    return;
 
 
-    img.onload =
-      async()=>{
+  const img =
+    new Image();
 
 
-        try{
+  img.onload =
+    async()=>{
 
+      try{
 
-          const reader =
-            new BrowserMultiFormatReader();
+        const result =
+          await decodePdf417Raw(img);
 
 
 
-          const result =
-            await reader.decodeFromImageElement(img);
+        const rawBytes =
+          result.rawBytes;
 
 
 
-          const rawBytes =
-            result.getRawBytes();
+        setDebugResult(
+          JSON.stringify(
+            {
+              text:
+                result.text,
+
+              format:
+                result.format,
+
+              rawBytes:
+                rawBytes
+                ?
+                Array.from(rawBytes)
+                :
+                null,
+
+              byteLength:
+                rawBytes
+                ?
+                rawBytes.length
+                :
+                0
+            },
+            null,
+            2
+          )
+        );
 
 
-
-          const debug = {
-
-            text:
-              result.getText(),
+        setGenericPdfResult(
+          result.text
+        );
 
 
-            format:
-              result.getBarcodeFormat(),
+      }
+      catch(err:any){
+
+        setDebugResult(
+          "ERROR:\n" +
+          err.message
+        );
 
 
-            rawBytes:
+        alert(
+          "No PDF417 barcode found"
+        );
 
-              rawBytes
-              ?
-              Array.from(rawBytes)
-              :
-              null
+      }
 
-          };
+    };
 
 
+  img.src =
+    URL.createObjectURL(file);
 
-          setDebugResult(
-            JSON.stringify(
-              debug,
-              null,
-              2
-            )
-          );
-
-
-
-          setGenericPdfResult(
-            result.getText()
-          );
-
-
-        }
-        catch(err:any){
-
-
-          setDebugResult(
-            "ERROR\n" +
-            err.message
-          );
-
-
-          alert(
-            "PDF417 not found"
-          );
-
-        }
-
-
-      };
-
-
-    img.src =
-      URL.createObjectURL(file);
-
-  }
-
+}
 
 
 
