@@ -1,5 +1,9 @@
-import { useState, useEffect } from "react";
-import { Html5QrcodeScanner } from "html5-qrcode";
+import { useState, useEffect, useRef } from "react";
+import {
+  Html5Qrcode,
+  Html5QrcodeScanner
+} from "html5-qrcode";
+
 import users from "./data/users.json";
 
 
@@ -16,6 +20,16 @@ function App() {
 
 
 
+  const qrScannerRef =
+    useRef<any>(null);
+
+
+  const idScannerRef =
+    useRef<Html5Qrcode | null>(null);
+
+
+
+
 
   // =================================
   // EMPLOYEE QR SCANNER
@@ -26,13 +40,21 @@ function App() {
 
     const scanner =
       new Html5QrcodeScanner(
+
         "qr-reader",
+
         {
           fps:10,
           qrbox:250
         },
+
         false
+
       );
+
+
+    qrScannerRef.current =
+      scanner;
 
 
 
@@ -44,7 +66,6 @@ function App() {
         setUserId(decodedText);
 
 
-
         const user =
           users.find(
             person =>
@@ -52,9 +73,7 @@ function App() {
           );
 
 
-
         setSelectedUser(user);
-
 
 
       },
@@ -68,8 +87,10 @@ function App() {
 
     return ()=>{
 
+
       scanner.clear()
         .catch(()=>{});
+
 
     };
 
@@ -87,7 +108,7 @@ function App() {
   // SMART ID SCANNER
   // =================================
 
-  const startIdScanner = ()=>{
+  const startIdScanner = async()=>{
 
 
     setIdScannerActive(true);
@@ -100,71 +121,91 @@ function App() {
 
 
     const scanner =
-      new Html5QrcodeScanner(
+      new Html5Qrcode(
+        "id-reader"
+      );
 
-        "id-reader",
+
+    idScannerRef.current =
+      scanner;
+
+
+
+    try {
+
+
+      await scanner.start(
+
+        {
+          facingMode:
+            "environment"
+        },
+
 
         {
 
-          fps:10,
+
+          fps:25,
+
 
           qrbox:{
 
-            width:400,
-            height:250
+            width:500,
+
+            height:200
 
           }
 
         },
 
-        false
+
+        (decodedText)=>{
+
+
+          setIdStatus(
+            "Smart ID barcode detected"
+          );
+
+
+          setIdScanResult(
+            decodedText
+          );
+
+
+
+          scanner.stop()
+            .catch(()=>{});
+
+
+        },
+
+
+        ()=>{
+
+          setIdStatus(
+            "Searching for barcode..."
+          );
+
+        }
+
 
       );
 
 
+    }
+    catch(error:any){
 
 
-
-    scanner.render(
-
-
-      (decodedText)=>{
-
-
-        setIdStatus(
-          "Barcode detected"
-        );
+      setIdStatus(
+        "Camera error: " +
+        error.message
+      );
 
 
-        setIdScanResult(
-          decodedText
-        );
-
-
-
-        scanner.clear()
-          .catch(()=>{});
-
-
-      },
-
-
-      ()=>{
-
-
-        setIdStatus(
-          "Searching..."
-        );
-
-
-      }
-
-
-    );
+    }
 
 
   };
-
 
 
 
@@ -176,7 +217,6 @@ function App() {
     <div style={{
       padding:"30px"
     }}>
-
 
 
       <h1>
@@ -256,9 +296,8 @@ function App() {
       </h2>
 
 
-
       <p>
-        Point only at the large PDF417 barcode on the back of the ID.
+        Scan the large PDF417 barcode on the back of the ID card.
       </p>
 
 
@@ -273,8 +312,10 @@ function App() {
             onClick={startIdScanner}
 
             style={{
+
               padding:"12px",
               fontSize:"18px"
+
             }}
 
           >
@@ -308,6 +349,7 @@ function App() {
 
 
 
+
       {
         idScanResult && (
 
@@ -315,7 +357,7 @@ function App() {
 
 
             <h3>
-              Raw ID Barcode Data
+              Raw Smart ID Result
             </h3>
 
 
@@ -335,12 +377,10 @@ function App() {
             />
 
 
-
           </div>
 
         )
       }
-
 
 
 
