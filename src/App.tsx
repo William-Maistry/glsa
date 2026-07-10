@@ -401,17 +401,20 @@
 
 
 
-
 import { useEffect, useRef, useState } from "react";
 import { BrowserPDF417Reader } from "@zxing/browser";
 
 export default function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
-  const [image, setImage] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
+
+  const reader = new BrowserPDF417Reader();
+
+  let stream: MediaStream | null = null;
 
   useEffect(() => {
     startCamera();
@@ -421,131 +424,177 @@ export default function App() {
     };
   }, []);
 
-  let controls: any;
-  const reader = new BrowserPDF417Reader();
-
   async function startCamera() {
     try {
       setError("");
 
-      controls = await reader.decodeFromConstraints(
-        {
-          video: {
-            facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: {
+            ideal: "environment",
+          },
+          width: {
+            ideal: 1920,
+          },
+          height: {
+            ideal: 1080,
           },
         },
-        videoRef.current!,
-        (scanResult) => {
-          if (scanResult) {
-            console.log("Camera result:", scanResult.getText());
-            setResult(scanResult.getText());
-          }
-        }
-      );
+        audio: false,
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+
+        await videoRef.current.play();
+
+        setCameraReady(true);
+      }
     } catch (err: any) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || "Camera failed");
     }
   }
 
   function stopCamera() {
-    if (controls) {
-      controls.stop();
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
     }
   }
 
-  async function handleImageUpload(
-    event: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const file = event.target.files?.[0];
+  async function captureAndScan() {
+    if (!videoRef.current || !canvasRef.current) {
+      return;
+    }
 
-    if (!file) return;
-
-    const imageUrl = URL.createObjectURL(file);
-
-    setImage(imageUrl);
     setError("");
+    setResult("");
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    // Use the actual camera resolution
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      return;
+    }
+
+    // Capture current frame
+    ctx.drawImage(
+      video,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
 
     try {
-      const img = new Image();
+      const scanResult = await reader.decodeFromCanvas(canvas);
 
-      img.onload = async () => {
-        try {
-          const result = await reader.decodeFromImageElement(img);
+      console.log("PDF417:", scanResult.getText());
 
-          console.log("Image result:", result.getText());
-          setResult(result.getText());
-        } catch (err: any) {
-          console.error(err);
-          setError("No PDF417 barcode found in image");
-        }
-      };
+      setResult(scanResult.getText());
 
-      img.src = imageUrl;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      console.error(err);
+      setError(
+        "No PDF417 found. Move closer, improve lighting, and try again."
+      );
     }
   }
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>PDF417 Scanner</h1>
+    <div
+      style={{
+        padding: 20,
+        fontFamily: "Arial",
+      }}
+    >
+      <h1>PDF417 Camera Scanner</h1>
 
-      <h3>Camera Scanner</h3>
-
-      <video
-        ref={videoRef}
-        muted
-        playsInline
+      <div
         style={{
-          width: "100%",
+          position: "relative",
           maxWidth: 600,
-          height: 400,
-          objectFit: "cover",
-          background: "black",
+        }}
+      >
+        <video
+          ref={videoRef}
+          muted
+          playsInline
+          style={{
+            width: "100%",
+            height: 450,
+            objectFit: "cover",
+            background: "black",
+            borderRadius: 12,
+          }}
+        />
+
+        <div
+          style={{
+            position: "absolute",
+            top: "35%",
+            left: "10%",
+            width: "80%",
+            height: 100,
+            border: "3px solid red",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+
+
+      <button
+        onClick={captureAndScan}
+        disabled={!cameraReady}
+        style={{
+          marginTop: 20,
+          padding: "15px 30px",
+          fontSize: 18,
+          cursor: "pointer",
+        }}
+      >
+        Scan PDF417
+      </button>
+
+
+      <canvas
+        ref={canvasRef}
+        style={{
+          display: "none",
         }}
       />
 
-      <hr />
-
-      <h3>Scan From Image</h3>
-
-      <input
-        type="file"
-        accept="image/*"
-        onChange={handleImageUpload}
-      />
-
-      {image && (
-        <img
-          ref={imageRef}
-          src={image}
-          alt="Uploaded"
-          style={{
-            width: "100%",
-            maxWidth: 600,
-            marginTop: 20,
-          }}
-        />
-      )}
 
       {error && (
-        <p style={{ color: "red" }}>
+        <p
+          style={{
+            color: "red",
+          }}
+        >
           {error}
         </p>
       )}
 
-      <h3>Result</h3>
+
+      <h3>Result:</h3>
 
       <pre
         style={{
           background: "#eee",
           padding: 15,
           whiteSpace: "pre-wrap",
+          borderRadius: 8,
         }}
       >
-        {result || "Waiting..."}
+        {result || "Waiting for scan..."}
       </pre>
     </div>
   );
