@@ -400,95 +400,37 @@
 
 
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { BrowserPDF417Reader } from "@zxing/browser";
 
 export default function App() {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
 
   const reader = new BrowserPDF417Reader();
 
-  let imageCapture: ImageCapture | null = null;
+  async function handlePhoto(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
 
-  useEffect(() => {
-    startCamera();
+    if (!file) return;
 
-    return () => {
-      stopCamera();
+    const img = new Image();
+
+    img.onload = async () => {
+      try {
+        const scanResult =
+          await reader.decodeFromImageElement(img);
+
+        setResult(scanResult.getText());
+
+      } catch (e) {
+        setError("Could not read PDF417");
+      }
     };
-  }, []);
 
-  async function startCamera() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-
-      const track = stream.getVideoTracks()[0];
-
-      if ("ImageCapture" in window) {
-        imageCapture = new ImageCapture(track);
-      }
-
-    } catch (e: any) {
-      setError(e.message);
-    }
-  }
-
-
-  function stopCamera() {
-    const stream = videoRef.current?.srcObject as MediaStream;
-
-    stream?.getTracks().forEach((track) => {
-      track.stop();
-    });
-  }
-
-
-  async function takePhotoAndScan() {
-    try {
-      setError("");
-
-      if (!imageCapture) {
-        setError("Image capture not supported on this browser");
-        return;
-      }
-
-      const bitmap = await imageCapture.takePhoto();
-
-      const img = document.createElement("img");
-
-      img.src = URL.createObjectURL(bitmap);
-
-      img.onload = async () => {
-        try {
-          const result =
-            await reader.decodeFromImageElement(img);
-
-          setResult(result.getText());
-
-        } catch {
-          setError("PDF417 not detected");
-        }
-      };
-
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message);
-    }
+    img.src = URL.createObjectURL(file);
   }
 
 
@@ -497,41 +439,24 @@ export default function App() {
 
       <h2>PDF417 Scanner</h2>
 
-      <video
-        ref={videoRef}
-        muted
-        playsInline
-        style={{
-          width:"100%",
-          maxWidth:600,
-          height:400,
-          objectFit:"cover",
-          background:"black"
-        }}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handlePhoto}
       />
 
-      <button
-        onClick={takePhotoAndScan}
-        style={{
-          marginTop:20,
-          padding:15,
-          fontSize:18
-        }}
-      >
-        Take Photo & Scan
-      </button>
+      <h3>Result</h3>
 
+      <pre>
+        {result || "Waiting"}
+      </pre>
 
       {error && (
         <p style={{color:"red"}}>
           {error}
         </p>
       )}
-
-
-      <pre>
-        {result || "Waiting..."}
-      </pre>
 
     </div>
   );
