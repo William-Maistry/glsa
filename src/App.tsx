@@ -11,7 +11,9 @@ function App() {
 
   const [idScanResult, setIdScanResult] = useState("");
   const [idDetails, setIdDetails] = useState<any>(null);
+
   const [idScannerActive, setIdScannerActive] = useState(false);
+  const [scanStatus, setScanStatus] = useState("");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -75,15 +77,18 @@ function App() {
 
 
   // ==========================
-  // SOUTH AFRICAN ID SCANNER
+  // SMART ID CARD SCANNER
   // ==========================
 
   const startIdScanner = async () => {
 
+
     setIdScannerActive(true);
+    setScanStatus("Opening camera...");
 
 
     const reader = new BrowserMultiFormatReader();
+
 
 
     try {
@@ -92,9 +97,20 @@ function App() {
       const controls =
         await reader.decodeFromConstraints(
 
+
           {
             video: {
-              facingMode: "environment"
+
+              facingMode: "environment",
+
+              width: {
+                ideal: 1920
+              },
+
+              height: {
+                ideal: 1080
+              }
+
             }
           },
 
@@ -113,9 +129,8 @@ function App() {
 
 
 
-              console.log(
-                "RAW ID BARCODE DATA:",
-                rawData
+              setScanStatus(
+                "Barcode detected!"
               );
 
 
@@ -133,25 +148,33 @@ function App() {
               controls.stop();
 
 
+            } else {
+
+
+              setScanStatus(
+                "Searching for barcode..."
+              );
+
+
             }
 
 
           }
 
-        );
 
+        );
 
 
     } catch(error) {
 
 
-      console.error(
-        "ID Scanner error:",
-        error
+      setScanStatus(
+        "Camera error: " + error
       );
 
 
     }
+
 
   };
 
@@ -160,8 +183,9 @@ function App() {
 
 
 
+
   // ==========================
-  // ID DATA PARSER
+  // ID BARCODE PARSER
   // ==========================
 
   const parseSouthAfricanId = (data:string) => {
@@ -194,27 +218,21 @@ function App() {
       surname:
         extract("DCS"),
 
-
       firstNames:
         extract("DAC"),
-
 
       dateOfBirth:
         extract("DBB"),
 
-
       gender:
         extract("DBC"),
-
 
       nationality:
         extract("DCT")
 
     };
 
-
   };
-
 
 
 
@@ -232,7 +250,6 @@ function App() {
       <h1>
         Depot Access Scanner
       </h1>
-
 
 
 
@@ -303,10 +320,10 @@ function App() {
 
 
 
-
       <h2>
         South African Smart ID Card Scanner
       </h2>
+
 
 
       <p>
@@ -343,16 +360,29 @@ function App() {
 
 
 
+      <p>
+        Status: {scanStatus}
+      </p>
+
+
+
+
+
+
       <video
 
         ref={videoRef}
 
         style={{
-          width:"400px",
+
+          width:"100%",
+          maxWidth:"500px",
           marginTop:"20px"
+
         }}
 
       />
+
 
 
 
@@ -364,9 +394,11 @@ function App() {
 
           <div>
 
+
             <h3>
               Raw Barcode Data
             </h3>
+
 
 
             <textarea
@@ -376,8 +408,10 @@ function App() {
               readOnly
 
               style={{
+
                 width:"100%",
                 height:"150px"
+
               }}
 
             />
@@ -387,6 +421,7 @@ function App() {
 
         )
       }
+
 
 
 
@@ -413,11 +448,13 @@ function App() {
             </p>
 
 
+
             <p>
               Surname:
               {" "}
               {idDetails.surname}
             </p>
+
 
 
             <p>
@@ -427,11 +464,13 @@ function App() {
             </p>
 
 
+
             <p>
               Gender:
               {" "}
               {idDetails.gender}
             </p>
+
 
 
             <p>
@@ -441,13 +480,10 @@ function App() {
             </p>
 
 
-
           </div>
 
         )
       }
-
-
 
 
 
