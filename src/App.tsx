@@ -403,8 +403,21 @@
 import { useState } from "react";
 import { BrowserPDF417Reader } from "@zxing/browser";
 
+interface IDData {
+  surname: string;
+  names: string;
+  sex: string;
+  nationality: string;
+  idNumber: string;
+  dateOfBirth: string;
+  countryOfBirth: string;
+  dateOfIssue: string;
+  controlNumber: string;
+  barcodeReference: string;
+}
+
 export default function App() {
-  const [result, setResult] = useState("");
+  const [data, setData] = useState<IDData | null>(null);
   const [error, setError] = useState("");
 
   const reader = new BrowserPDF417Reader();
@@ -416,17 +429,40 @@ export default function App() {
 
     if (!file) return;
 
+    setError("");
+
     const img = new Image();
 
     img.onload = async () => {
       try {
-        const scanResult =
+        const result =
           await reader.decodeFromImageElement(img);
 
-        setResult(scanResult.getText());
+        const raw = result.getText();
 
-      } catch (e) {
-        setError("Could not read PDF417");
+        console.log("RAW PDF417:");
+        console.log(raw);
+
+        const fields = raw.split("|");
+
+        const id: IDData = {
+          surname: fields[0] ?? "",
+          names: fields[1] ?? "",
+          sex: fields[2] ?? "",
+          nationality: fields[3] ?? "",
+          idNumber: fields[4] ?? "",
+          dateOfBirth: fields[5] ?? "",
+          countryOfBirth: fields[6] ?? "",
+          dateOfIssue: fields[7] ?? "",
+          controlNumber: fields[8] ?? "",
+          barcodeReference: fields[9] ?? "",
+        };
+
+        setData(id);
+
+      } catch (err) {
+        console.error(err);
+        setError("Could not read PDF417 barcode");
       }
     };
 
@@ -435,29 +471,160 @@ export default function App() {
 
 
   return (
-    <div style={{padding:20}}>
+    <div
+      style={{
+        padding: 20,
+        fontFamily: "Arial",
+        maxWidth: 500,
+        margin: "auto",
+      }}
+    >
+      <h1>
+        ID Scanner
+      </h1>
 
-      <h2>PDF417 Scanner</h2>
 
-      <input
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handlePhoto}
-      />
+      <label
+        style={{
+          display: "block",
+          padding: 15,
+          background: "#2563eb",
+          color: "white",
+          textAlign: "center",
+          borderRadius: 8,
+          cursor: "pointer",
+        }}
+      >
+        Scan ID Card
 
-      <h3>Result</h3>
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handlePhoto}
+          style={{
+            display: "none",
+          }}
+        />
+      </label>
 
-      <pre>
-        {result || "Waiting"}
-      </pre>
 
       {error && (
-        <p style={{color:"red"}}>
+        <p
+          style={{
+            color: "red",
+          }}
+        >
           {error}
         </p>
       )}
 
+
+      {data && (
+        <div
+          style={{
+            marginTop: 25,
+            padding: 20,
+            borderRadius: 12,
+            background: "#f4f4f4",
+            boxShadow: "0 3px 10px rgba(0,0,0,0.15)",
+          }}
+        >
+
+          <h2>
+            Personal Information
+          </h2>
+
+          <Info
+            label="Surname"
+            value={data.surname}
+          />
+
+          <Info
+            label="Names"
+            value={data.names}
+          />
+
+          <Info
+            label="Sex"
+            value={data.sex}
+          />
+
+          <Info
+            label="Nationality"
+            value={data.nationality}
+          />
+
+
+          <h2>
+            Identity Details
+          </h2>
+
+          <Info
+            label="ID Number"
+            value={data.idNumber}
+          />
+
+          <Info
+            label="Date of Birth"
+            value={data.dateOfBirth}
+          />
+
+          <Info
+            label="Country of Birth"
+            value={data.countryOfBirth}
+          />
+
+
+          <h2>
+            Document Details
+          </h2>
+
+          <Info
+            label="Date of Issue"
+            value={data.dateOfIssue}
+          />
+
+          <Info
+            label="Control Number"
+            value={data.controlNumber}
+          />
+
+          <Info
+            label="Barcode Reference"
+            value={data.barcodeReference}
+          />
+
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function Info({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        padding: "8px 0",
+        borderBottom: "1px solid #ddd",
+      }}
+    >
+      <strong>
+        {label}
+      </strong>
+
+      <span>
+        {value}
+      </span>
     </div>
   );
 }
