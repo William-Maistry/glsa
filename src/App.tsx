@@ -400,21 +400,18 @@
 
 
 
-
 import { useEffect, useRef, useState } from "react";
 import { BrowserPDF417Reader } from "@zxing/browser";
 
 export default function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
-  const [cameraReady, setCameraReady] = useState(false);
 
   const reader = new BrowserPDF417Reader();
 
-  let stream: MediaStream | null = null;
+  let imageCapture: ImageCapture | null = null;
 
   useEffect(() => {
     startCamera();
@@ -426,176 +423,116 @@ export default function App() {
 
   async function startCamera() {
     try {
-      setError("");
-
-      stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: {
-            ideal: "environment",
-          },
-          width: {
-            ideal: 1920,
-          },
-          height: {
-            ideal: 1080,
-          },
+          facingMode: "environment",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
         audio: false,
       });
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-
         await videoRef.current.play();
-
-        setCameraReady(true);
       }
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Camera failed");
+
+      const track = stream.getVideoTracks()[0];
+
+      if ("ImageCapture" in window) {
+        imageCapture = new ImageCapture(track);
+      }
+
+    } catch (e: any) {
+      setError(e.message);
     }
   }
+
 
   function stopCamera() {
-    if (stream) {
-      stream.getTracks().forEach((track) => {
-        track.stop();
-      });
-    }
+    const stream = videoRef.current?.srcObject as MediaStream;
+
+    stream?.getTracks().forEach((track) => {
+      track.stop();
+    });
   }
 
-  async function captureAndScan() {
-    if (!videoRef.current || !canvasRef.current) {
-      return;
-    }
 
-    setError("");
-    setResult("");
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    // Use the actual camera resolution
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    const ctx = canvas.getContext("2d");
-
-    if (!ctx) {
-      return;
-    }
-
-    // Capture current frame
-    ctx.drawImage(
-      video,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
-
+  async function takePhotoAndScan() {
     try {
-      const scanResult = await reader.decodeFromCanvas(canvas);
+      setError("");
 
-      console.log("PDF417:", scanResult.getText());
+      if (!imageCapture) {
+        setError("Image capture not supported on this browser");
+        return;
+      }
 
-      setResult(scanResult.getText());
+      const bitmap = await imageCapture.takePhoto();
 
-    } catch (err) {
-      console.error(err);
-      setError(
-        "No PDF417 found. Move closer, improve lighting, and try again."
-      );
+      const img = document.createElement("img");
+
+      img.src = URL.createObjectURL(bitmap);
+
+      img.onload = async () => {
+        try {
+          const result =
+            await reader.decodeFromImageElement(img);
+
+          setResult(result.getText());
+
+        } catch {
+          setError("PDF417 not detected");
+        }
+      };
+
+    } catch (e: any) {
+      console.error(e);
+      setError(e.message);
     }
   }
+
 
   return (
-    <div
-      style={{
-        padding: 20,
-        fontFamily: "Arial",
-      }}
-    >
-      <h1>PDF417 Camera Scanner</h1>
+    <div style={{padding:20}}>
 
-      <div
+      <h2>PDF417 Scanner</h2>
+
+      <video
+        ref={videoRef}
+        muted
+        playsInline
         style={{
-          position: "relative",
-          maxWidth: 600,
-        }}
-      >
-        <video
-          ref={videoRef}
-          muted
-          playsInline
-          style={{
-            width: "100%",
-            height: 450,
-            objectFit: "cover",
-            background: "black",
-            borderRadius: 12,
-          }}
-        />
-
-        <div
-          style={{
-            position: "absolute",
-            top: "35%",
-            left: "10%",
-            width: "80%",
-            height: 100,
-            border: "3px solid red",
-            pointerEvents: "none",
-          }}
-        />
-      </div>
-
-
-      <button
-        onClick={captureAndScan}
-        disabled={!cameraReady}
-        style={{
-          marginTop: 20,
-          padding: "15px 30px",
-          fontSize: 18,
-          cursor: "pointer",
-        }}
-      >
-        Scan PDF417
-      </button>
-
-
-      <canvas
-        ref={canvasRef}
-        style={{
-          display: "none",
+          width:"100%",
+          maxWidth:600,
+          height:400,
+          objectFit:"cover",
+          background:"black"
         }}
       />
 
+      <button
+        onClick={takePhotoAndScan}
+        style={{
+          marginTop:20,
+          padding:15,
+          fontSize:18
+        }}
+      >
+        Take Photo & Scan
+      </button>
+
 
       {error && (
-        <p
-          style={{
-            color: "red",
-          }}
-        >
+        <p style={{color:"red"}}>
           {error}
         </p>
       )}
 
 
-      <h3>Result:</h3>
-
-      <pre
-        style={{
-          background: "#eee",
-          padding: 15,
-          whiteSpace: "pre-wrap",
-          borderRadius: 8,
-        }}
-      >
-        {result || "Waiting for scan..."}
+      <pre>
+        {result || "Waiting..."}
       </pre>
+
     </div>
   );
 }
