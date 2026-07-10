@@ -403,39 +403,59 @@
 
 
 
-
-
 import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
+import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 
 export default function App() {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
   const [result, setResult] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const codeReader = new BrowserMultiFormatReader();
+    const hints = new Map();
+
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.PDF_417,
+    ]);
+
+    const reader = new BrowserMultiFormatReader(hints);
+
     let controls: any;
 
-    const startScanner = async () => {
-      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+    const startCamera = async () => {
+      try {
+        setError("");
 
-      const backCamera =
-        devices.find((device) =>
-          device.label.toLowerCase().includes("back")
-        ) ?? devices[0];
+        controls = await reader.decodeFromConstraints(
+          {
+            video: {
+              facingMode: {
+                ideal: "environment",
+              },
+            },
+          },
+          videoRef.current!,
+          (scanResult, scanError) => {
+            if (scanResult) {
+              console.log("PDF417:", scanResult.getText());
+              setResult(scanResult.getText());
+            }
 
-      controls = await codeReader.decodeFromVideoDevice(
-        backCamera?.deviceId,
-        videoRef.current!,
-        (result, _error) => {
-          if (result) {
-            setResult(result.getText());
+            if (scanError) {
+              // ZXing throws lots of "not found" errors while scanning.
+              // Ignore those.
+            }
           }
-        }
-      );
+        );
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || "Camera failed to start");
+      }
     };
 
-    startScanner();
+    startCamera();
 
     return () => {
       if (controls) {
@@ -445,16 +465,51 @@ export default function App() {
   }, []);
 
   return (
-    <div>
+    <main
+      style={{
+        padding: 20,
+        fontFamily: "Arial",
+      }}
+    >
+      <h2>PDF417 Scanner</h2>
+
       <video
         ref={videoRef}
-        style={{ width: "100%" }}
         muted
         playsInline
+        style={{
+          width: "100%",
+          maxWidth: 500,
+          height: 400,
+          objectFit: "cover",
+          background: "#000",
+          borderRadius: 10,
+        }}
       />
 
-      <p>Scanned:</p>
-      <pre>{result}</pre>
-    </div>
+      {error && (
+        <div
+          style={{
+            color: "red",
+            marginTop: 20,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <h3>Result:</h3>
+
+      <pre
+        style={{
+          whiteSpace: "pre-wrap",
+          background: "#eee",
+          padding: 15,
+          borderRadius: 8,
+        }}
+      >
+        {result || "Waiting for scan..."}
+      </pre>
+    </main>
   );
 }
