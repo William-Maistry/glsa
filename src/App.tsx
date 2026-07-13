@@ -1,26 +1,38 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   readBarcodesFromImageData,
 } from "@sec-ant/zxing-wasm/reader";
 
 
-function processFrame(
-  source: HTMLVideoElement,
+type ScanResult = {
+  format: string;
+  text: string;
+  bytes?: Uint8Array;
+  method: string;
+};
+
+
+
+function createImageData(
+  image: HTMLImageElement,
   mode: number
 ): ImageData {
+
 
   const canvas =
     document.createElement("canvas");
 
 
-  const scale = 2;
+  const scale =
+    mode >= 10 ? 3 : 2;
 
 
   canvas.width =
-    source.videoWidth * scale;
+    image.naturalWidth * scale;
+
 
   canvas.height =
-    source.videoHeight * scale;
+    image.naturalHeight * scale;
 
 
   const ctx =
@@ -29,13 +41,13 @@ function processFrame(
 
   if (!ctx) {
     throw new Error(
-      "Canvas error"
+      "Canvas unavailable"
     );
   }
 
 
   ctx.drawImage(
-    source,
+    image,
     0,
     0,
     canvas.width,
@@ -43,7 +55,7 @@ function processFrame(
   );
 
 
-  const image =
+  const img =
     ctx.getImageData(
       0,
       0,
@@ -52,349 +64,446 @@ function processFrame(
     );
 
 
-  if (mode === 0) {
-    return image;
+  const pixels =
+    img.data;
+
+
+
+  // 0 = original
+  // 1 = grayscale
+  // 2-6 = thresholds
+
+
+  if(mode === 0){
+    return img;
   }
 
 
-  const pixels =
-    image.data;
 
-
-  for (
+  for(
     let i = 0;
     i < pixels.length;
     i += 4
-  ) {
+  ){
 
     const r =
       pixels[i];
 
     const g =
-      pixels[i + 1];
+      pixels[i+1];
 
     const b =
-      pixels[i + 2];
+      pixels[i+2];
 
 
     let gray =
-      0.299 * r +
-      0.587 * g +
-      0.114 * b;
+      0.299*r +
+      0.587*g +
+      0.114*b;
 
 
-    if (mode === 1) {
+
+    if(mode === 1){
 
       pixels[i] =
         gray;
 
-      pixels[i + 1] =
+      pixels[i+1] =
         gray;
 
-      pixels[i + 2] =
+      pixels[i+2] =
         gray;
 
     }
 
 
-    if (mode === 2) {
+
+    if(
+      mode >= 2 &&
+      mode <= 6
+    ){
+
+      const threshold =
+        80 +
+        ((mode-2)*25);
+
+
 
       gray =
-        gray > 140
+        gray > threshold
           ? 255
           : 0;
 
 
+
       pixels[i] =
         gray;
 
-      pixels[i + 1] =
+      pixels[i+1] =
         gray;
 
-      pixels[i + 2] =
+      pixels[i+2] =
         gray;
 
     }
+
+
+
+    if(mode === 7){
+
+      gray =
+        Math.min(
+          255,
+          gray * 1.5
+        );
+
+
+      pixels[i] =
+        gray;
+
+      pixels[i+1] =
+        gray;
+
+      pixels[i+2] =
+        gray;
+
+    }
+
 
   }
 
 
-  return image;
+  return img;
+
 }
 
 
 
-async function scanFrame(
-  image: ImageData
-) {
 
-  return await readBarcodesFromImageData(
-    image,
-    {
-      tryHarder:true,
-      maxSymbols:5
+
+async function tryScan(
+  imageData: ImageData,
+  method:string
+):Promise<ScanResult|null>{
+
+
+  try{
+
+
+    const results =
+      await readBarcodesFromImageData(
+        imageData,
+        {
+          tryHarder:true,
+          maxSymbols:5
+        }
+      );
+
+
+
+    if(
+      results.length === 0
+    ){
+      return null;
     }
-  );
+
+
+
+    const result =
+      results[0];
+
+
+
+    const bytes =
+      result.bytes
+      ?
+      new Uint8Array(
+        result.bytes
+      )
+      :
+      undefined;
+
+
+
+    return {
+
+      format:
+        result.format,
+
+      text:
+        result.text,
+
+      bytes,
+
+      method
+
+    };
+
+
+  }
+  catch{
+
+    return null;
+
+  }
 
 }
 
 
+
+
+
+
+async function scanImage(
+  file:File
+):Promise<ScanResult|null>{
+
+
+  const url =
+    URL.createObjectURL(file);
+
+
+
+  try{
+
+
+    const img =
+      new Image();
+
+
+
+    img.src =
+      url;
+
+
+
+    await new Promise(
+      resolve =>
+        img.onload =
+          resolve
+    );
+
+
+
+    // Different processing attempts
+
+    const modes = [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ];
+
+
+
+    for(
+      const mode of modes
+    ){
+
+
+      const data =
+        createImageData(
+          img,
+          mode
+        );
+
+
+
+      const result =
+        await tryScan(
+          data,
+          "MODE_" + mode
+        );
+
+
+
+      if(result){
+
+        return result;
+
+      }
+
+
+    }
+
+
+
+    return null;
+
+
+
+  }
+  finally{
+
+    URL.revokeObjectURL(url);
+
+  }
+
+
+}
 
 function App() {
 
-  const videoRef =
-    useRef<HTMLVideoElement>(null);
-
-
-  const running =
-    useRef(true);
-
 
   const [status,setStatus] =
-    useState(
-      "Starting camera..."
-    );
-
+    useState("");
 
   const [data,setData] =
     useState("");
 
-
   const [debug,setDebug] =
     useState("");
-
 
   const [error,setError] =
     useState("");
 
 
 
-  useEffect(() => {
+
+  async function handleFile(
+    event:
+      React.ChangeEvent<HTMLInputElement>
+  ){
 
 
-    let stream:
-      MediaStream | null = null;
+    const file =
+      event.target.files?.[0];
 
 
-
-    async function startCamera() {
-
-      try {
-
-        stream =
-          await navigator
-          .mediaDevices
-          .getUserMedia({
-
-            video:{
-              facingMode:
-                {
-                  ideal:
-                  "environment"
-                },
-
-              width:
-              {
-                ideal:1920
-              },
-
-              height:
-              {
-                ideal:1080
-              }
-
-            },
-
-            audio:false
-
-          });
-
-
-
-        if (
-          videoRef.current
-        ) {
-
-          videoRef.current.srcObject =
-            stream;
-
-          await videoRef.current.play();
-
-        }
-
-
-        setStatus(
-          "Camera active - scanning..."
-        );
-
-
-        scanLoop();
-
-
-      }
-      catch(err){
-
-        setError(
-          "Camera error: " +
-          String(err)
-        );
-
-      }
-
+    if(!file){
+      return;
     }
 
 
 
-    async function scanLoop(){
+    setStatus(
+      "Scanning image..."
+    );
 
-      while(
-        running.current
-      ){
 
-        try {
+    setData("");
 
-          if(
-            !videoRef.current ||
-            videoRef.current.videoWidth === 0
-          ){
+    setDebug("");
 
-            await sleep(200);
-
-            continue;
-
-          }
+    setError("");
 
 
 
-          for(
-            let mode = 0;
-            mode < 3;
-            mode++
-          ){
-
-            const image =
-              processFrame(
-                videoRef.current,
-                mode
-              );
+    try{
 
 
-            const results =
-              await scanFrame(
-                image
-              );
-
-
-            if(
-              results.length > 0
-            ){
-
-              const result =
-                results[0];
-
-
-              const bytes = result.bytes as Uint8Array | undefined;
+      const result =
+        await scanImage(
+          file
+        );
 
 
 
-              const hex =
-                bytes
-                ?
-                Array.from(bytes)
-                .slice(0,150)
-                .map(
-                  (b:number)=>
-                    b
-                    .toString(16)
-                    .padStart(2,"0")
-                )
-                .join(" ")
-                :
-                "NULL";
+      if(!result){
+
+        throw new Error(
+          "No PDF417 barcode detected"
+        );
+
+      }
 
 
 
-              setDebug(`
+      const bytes =
+        result.bytes;
+
+
+
+      let hex =
+        "NO BYTES";
+
+
+
+      if(bytes){
+
+
+        hex =
+          Array.from(bytes)
+          .slice(0,200)
+          .map(
+            (b:number)=>
+              b
+              .toString(16)
+              .padStart(2,"0")
+          )
+          .join(" ");
+
+      }
+
+
+
+
+      setDebug(`
+
+METHOD:
+${result.method}
+
 
 FORMAT:
 ${result.format}
 
 
 BYTE LENGTH:
-${bytes?.length}
+${bytes?.length ?? "NULL"}
 
 
 HEX START:
 ${hex}
 
+
 TEXT LENGTH:
-${result.text?.length}
+${result.text.length}
 
 `);
 
 
 
-              setData(
-                result.text
-              );
+
+      setData(
+        result.text
+      );
 
 
-              setStatus(
-                "PDF417 FOUND!"
-              );
+      setStatus(
+        "PDF417 FOUND!"
+      );
 
 
-              running.current =
-                false;
+
+    }
+    catch(err){
 
 
-              return;
-
-            }
-
-          }
+      console.error(err);
 
 
-        }
-        catch(e){
 
-          console.log(e);
+      setError(
+        err instanceof Error
+        ?
+        err.message
+        :
+        "Unknown error"
+      );
 
-        }
 
-
-        await sleep(300);
-
-      }
+      setStatus("");
 
     }
 
 
-
-    startCamera();
-
+  }
 
 
-    return () => {
-
-      running.current =
-        false;
-
-
-      if(stream){
-
-        stream
-        .getTracks()
-        .forEach(
-          t=>t.stop()
-        );
-
-      }
-
-    };
-
-
-  },[]);
 
 
 
@@ -403,35 +512,47 @@ ${result.text?.length}
     <div
       style={{
         padding:20,
-        fontFamily:"Arial"
+        fontFamily:"Arial",
+        maxWidth:900,
+        margin:"auto"
       }}
     >
 
+
       <h2>
-        SA PDF417 Live Scanner
+        South African PDF417 Scanner
       </h2>
 
 
-      <video
 
-        ref={videoRef}
+      <p>
+        Take a clear photo of the barcode,
+        then upload it.
+      </p>
 
-        style={{
-          width:"100%",
-          maxWidth:600,
-          border:"2px solid black"
-        }}
 
-        playsInline
 
-        muted
+      <input
+
+        type="file"
+
+        accept="image/*"
+
+        capture="environment"
+
+        onChange={
+          handleFile
+        }
 
       />
+
 
 
       <h3>
         {status}
       </h3>
+
+
 
 
       {
@@ -447,16 +568,19 @@ ${result.text?.length}
 
 
 
+
       <h3>
-        Debug
+        Debug Information
       </h3>
+
 
 
       <pre
         style={{
           background:"#eee",
-          padding:10,
-          whiteSpace:"pre-wrap"
+          padding:15,
+          whiteSpace:"pre-wrap",
+          overflowWrap:"break-word"
         }}
       >
         {debug}
@@ -464,9 +588,12 @@ ${result.text?.length}
 
 
 
+
+
       <h3>
-        Text
+        Barcode Text
       </h3>
+
 
 
       <textarea
@@ -477,10 +604,12 @@ ${result.text?.length}
 
         style={{
           width:"100%",
-          height:200
+          height:300,
+          fontFamily:"monospace"
         }}
 
       />
+
 
 
     </div>
@@ -490,20 +619,6 @@ ${result.text?.length}
 }
 
 
-
-function sleep(
-  ms:number
-){
-
-  return new Promise(
-    resolve =>
-      setTimeout(
-        resolve,
-        ms
-      )
-  );
-
-}
 
 
 export default App;
