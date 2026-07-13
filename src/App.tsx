@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
+  BarcodeFormat,
   DecodeHintType,
 } from "@zxing/library";
 
@@ -30,16 +31,39 @@ function App() {
       const hints = new Map();
 
       hints.set(
+        DecodeHintType.POSSIBLE_FORMATS,
+        [BarcodeFormat.PDF_417]
+      );
+
+      hints.set(
         DecodeHintType.TRY_HARDER,
         true
       );
+
+      hints.set(
+        DecodeHintType.PURE_BARCODE,
+        true
+      );
+
 
       const reader =
         new BrowserMultiFormatReader(hints);
 
 
+      const img =
+        new Image();
+
+      img.src = imageUrl;
+
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+
       const result =
-        await reader.decodeFromImageUrl(imageUrl);
+        await reader.decodeFromImageElement(img);
 
 
       const text =
@@ -49,7 +73,7 @@ function App() {
         result.getRawBytes();
 
 
-      const debugInfo = `
+      const debugText = `
 FORMAT:
 ${result.getBarcodeFormat()}
 
@@ -65,10 +89,9 @@ ${
     ? "YES - " + rawBytes.length + " bytes"
     : "NULL"
 }
-      `;
+`;
 
-
-      setDebug(debugInfo);
+      setDebug(debugText);
 
       setData(text);
 
@@ -106,8 +129,6 @@ ${
       style={{
         padding: 20,
         fontFamily: "Arial",
-        maxWidth: 900,
-        margin: "0 auto",
       }}
     >
 
@@ -130,27 +151,21 @@ ${
 
 
       {error && (
-        <p
-          style={{
-            color: "red",
-          }}
-        >
+        <p style={{ color: "red" }}>
           {error}
         </p>
       )}
 
 
       <h3>
-        Debug Result
+        Debug
       </h3>
-
 
       <pre
         style={{
           background: "#eee",
           padding: 10,
           whiteSpace: "pre-wrap",
-          fontSize: 14,
         }}
       >
         {debug}
@@ -158,9 +173,8 @@ ${
 
 
       <h3>
-        Decoded Data
+        Data
       </h3>
-
 
       <textarea
         value={data}
@@ -168,7 +182,6 @@ ${
         style={{
           width: "100%",
           height: 300,
-          fontFamily: "monospace",
         }}
       />
 
