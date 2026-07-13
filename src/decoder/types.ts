@@ -1,42 +1,45 @@
 export interface VehicleLicense {
-  code:string;
-  restriction:string;
-  firstIssueDate:string;
+  code: string;
+  restriction: string;
+  firstIssueDate: string;
 }
 
 
 export interface SALicenseData {
 
-  idNumber:string;
+  idNumber: string;
 
-  idNumberType:string;
+  idNumberType: string;
 
-  idCountryOfIssue:string;
+  idCountryOfIssue: string;
 
-  surname:string;
+  surname: string;
 
-  initials:string;
+  initials: string;
 
-  gender:string;
+  gender: string;
 
-  birthDate:string;
+  birthDate: string;
 
-  driverRestrictions:string;
+  driverRestrictions: string;
 
-  licenseCountryOfIssue:string;
+  licenseCountryOfIssue: string;
 
-  licenseIssueNumber:string;
+  licenseIssueNumber: string;
 
-  licenseNumber:string;
+  licenseNumber: string;
 
-  licenseValidityStart:string;
+  licenseValidityStart: string;
 
-  licenseValidityExpiry:string;
+  licenseValidityExpiry: string;
 
-  professionalDrivingPermitExpiry:string | null;
+  professionalDrivingPermitExpiry:
+    string | null;
 
-  professionalDrivingPermitCodes:string[];
+  professionalDrivingPermitCodes:
+    string[];
 
-  vehicleLicenses:VehicleLicense[];
+  vehicleLicenses:
+    VehicleLicense[];
 
 }

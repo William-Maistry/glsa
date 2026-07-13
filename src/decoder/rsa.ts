@@ -1,76 +1,126 @@
 import forge from "node-forge";
+import {
+  VERSION2_KEY_128,
+  VERSION2_KEY_74,
+  VERSION1_KEY_128,
+  VERSION1_KEY_74
+} from "./keys";
 
 
-const VERSION2_KEY_128 = `
-MIGWAoGBAMqfGO9sPz+kxaRh/qVKsZQGul7NdG1gonSS3KPXTjtcHTFfexA4MkGA
-mwKeu9XeTRFgMMxX99WmyaFvNzuxSlCFI/foCkx0TZCFZjpKFHLXryxWrkG1Bl9+
-+gKTvTJ4rWk1RvnxYhm3n/Rxo2NoJM/822Oo7YBZ5rmk8NuJU4HLAhAYcJLaZFTO
-sYU+aRX4RmoF
-`;
+function uint8ArrayToForgeBuffer(
+  bytes: Uint8Array
+) {
 
+  let binary = "";
 
-const VERSION2_KEY_74 = `
-MF8CSwC0BKDfEdHKz/GhoEjU1XP5U6YsWD10klknVhpteh4rFAQlJq9wtVBUc5Dq
-bsdI0w/bga20kODDahmGtASy9fae9dobZj5ZUJEw5wIQMJz+2XGf4qXiDJu0R2U4
-Kw==
-`;
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
 
-
-
-function loadKey(
-  key:string
-){
-
-  return forge.pki.publicKeyFromPem(
-    "-----BEGIN RSA PUBLIC KEY-----\n" +
-    key.trim() +
-    "\n-----END RSA PUBLIC KEY-----"
+  return forge.util.createBuffer(
+    binary,
+    "raw"
   );
 
 }
 
 
 
-const key128 =
-loadKey(VERSION2_KEY_128);
+function rsaDecrypt(
+  block: Uint8Array,
+  keyPem: string
+): Uint8Array {
 
 
-const key74 =
-loadKey(VERSION2_KEY_74);
+  const publicKey =
+    forge.pki.publicKeyFromPem(
+      keyPem
+    );
+
+
+  const encrypted =
+    uint8ArrayToForgeBuffer(block)
+    .getBytes();
+
+
+
+  /*
+    The SA licence system uses
+    RSA public key operation.
+
+    We are effectively reversing
+    the RSA "encryption" done by
+    the licensing authority.
+  */
+
+  const decrypted =
+    publicKey.encrypt(
+      encrypted,
+      "RAW"
+    );
+
+
+  const output =
+    new Uint8Array(
+      decrypted.length
+    );
+
+
+  for (
+    let i = 0;
+    i < decrypted.length;
+    i++
+  ) {
+
+    output[i] =
+      decrypted.charCodeAt(i);
+
+  }
+
+
+  return output;
+
+}
+
+
 
 
 
 export function rsaDecryptBlock(
-  block:Uint8Array
-){
-
-  const key =
-    block.length === 128
-      ? key128
-      : key74;
+  block: Uint8Array,
+  version: number = 2
+): Uint8Array {
 
 
-  const encrypted =
-    forge.util.binary.raw.encode(
-      block
-    );
+  let key: string;
 
 
-  const decrypted =
-    key.encrypt(
-      encrypted
-    );
+  if (version === 1) {
+
+    if (block.length === 128) {
+      key = VERSION1_KEY_128;
+    }
+    else {
+      key = VERSION1_KEY_74;
+    }
+
+  }
+  else {
+
+    if (block.length === 128) {
+      key = VERSION2_KEY_128;
+    }
+    else {
+      key = VERSION2_KEY_74;
+    }
+
+  }
 
 
-  return new Uint8Array(
-    forge.util.createBuffer(
-      decrypted,
-      "raw"
-    ).getBytes()
-    .split("")
-    .map(
-      c=>c.charCodeAt(0)
-    )
+
+  return rsaDecrypt(
+    block,
+    key
   );
 
 }
