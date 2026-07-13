@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
-  BarcodeFormat,
   DecodeHintType,
 } from "@zxing/library";
 
@@ -16,7 +15,9 @@ function App() {
   ) {
     const file = event.target.files?.[0];
 
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     const imageUrl = URL.createObjectURL(file);
 
@@ -27,11 +28,6 @@ function App() {
       setDebug("");
 
       const hints = new Map();
-
-      hints.set(
-        DecodeHintType.POSSIBLE_FORMATS,
-        [BarcodeFormat.PDF_417]
-      );
 
       hints.set(
         DecodeHintType.TRY_HARDER,
@@ -46,6 +42,7 @@ function App() {
 
       img.src = imageUrl;
 
+
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
@@ -53,13 +50,10 @@ function App() {
 
 
       setDebug(
-        `IMAGE SIZE:
+        `IMAGE:
 ${img.width} x ${img.height}
 
-FILE SIZE:
-${Math.round(file.size / 1024)} KB
-
-Trying PDF417 decode...`
+Trying all barcode formats...`
       );
 
 
@@ -67,51 +61,79 @@ Trying PDF417 decode...`
         await reader.decodeFromImageElement(img);
 
 
-      const raw =
+      const text =
+        result.getText();
+
+
+      const rawBytes =
         result.getRawBytes();
 
 
-      setDebug(
-        `FORMAT:
+      const debugInfo = `
+FORMAT:
 ${result.getBarcodeFormat()}
 
+TEXT LENGTH:
+${text.length}
+
 TEXT:
-${result.getText()}
+${text}
 
 RAW BYTES:
-${raw ? raw.length : "NULL"}`
+${
+  rawBytes
+    ? rawBytes.length + " bytes"
+    : "NULL"
+}
+`;
+
+      setDebug(debugInfo);
+
+      setData(text);
+
+      setStatus(
+        "Barcode found!"
       );
 
 
-      setData(result.getText());
-      setStatus("Barcode found!");
-
     } catch (err) {
 
-      const msg =
+      const message =
         err instanceof Error
           ? err.message
           : "Unknown error";
 
-      setError(msg);
+
+      setError(message);
 
       setDebug(
-        `FAILED:
-
-${msg}`
+        "ERROR:\n\n" + message
       );
 
       setStatus("");
 
     } finally {
+
       URL.revokeObjectURL(imageUrl);
+
     }
   }
 
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>PDF417 Test</h2>
+    <div
+      style={{
+        padding: 20,
+        fontFamily: "Arial",
+        maxWidth: 900,
+        margin: "0 auto",
+      }}
+    >
+
+      <h2>
+        South African Barcode Scanner
+      </h2>
+
 
       <input
         type="file"
@@ -120,30 +142,52 @@ ${msg}`
         onChange={scanImage}
       />
 
-      <p>{status}</p>
+
+      <p>
+        {status}
+      </p>
+
 
       {error && (
-        <p style={{ color: "red" }}>
+        <p
+          style={{
+            color: "red",
+          }}
+        >
           {error}
         </p>
       )}
 
-      <h3>Debug</h3>
 
-      <pre>
+      <h3>
+        Debug
+      </h3>
+
+      <pre
+        style={{
+          background: "#eee",
+          padding: 10,
+          whiteSpace: "pre-wrap",
+        }}
+      >
         {debug}
       </pre>
 
-      <h3>Data</h3>
+
+      <h3>
+        Decoded Data
+      </h3>
 
       <textarea
         value={data}
         readOnly
         style={{
           width: "100%",
-          height: 250
+          height: 300,
+          fontFamily: "monospace",
         }}
       />
+
     </div>
   );
 }
