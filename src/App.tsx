@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
-  DecodeHintType,
-} from "@zxing/library";
+  readBarcodesFromImageFile,
+} from "@sec-ant/zxing-wasm/reader";
 
 function App() {
   const [data, setData] = useState("");
@@ -19,77 +18,58 @@ function App() {
       return;
     }
 
-    const imageUrl = URL.createObjectURL(file);
-
     try {
-      setStatus("Reading barcode...");
+      setStatus("Scanning...");
       setData("");
       setError("");
       setDebug("");
 
-      const hints = new Map();
 
-      hints.set(
-        DecodeHintType.TRY_HARDER,
-        true
-      );
-
-      const reader =
-        new BrowserMultiFormatReader(hints);
-
-
-      const img = new Image();
-
-      img.src = imageUrl;
+      const results =
+        await readBarcodesFromImageFile(
+          file,
+          {
+            tryHarder: true,
+          }
+        );
 
 
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-
-
-      setDebug(
-        `IMAGE:
-${img.width} x ${img.height}
-
-Trying all barcode formats...`
-      );
+      if (
+        results.length === 0
+      ) {
+        throw new Error(
+          "No barcode detected"
+        );
+      }
 
 
       const result =
-        await reader.decodeFromImageElement(img);
-
-
-      const text =
-        result.getText();
-
-
-      const rawBytes =
-        result.getRawBytes();
+        results[0];
 
 
       const debugInfo = `
 FORMAT:
-${result.getBarcodeFormat()}
-
-TEXT LENGTH:
-${text.length}
+${result.format}
 
 TEXT:
-${text}
+${result.text}
 
-RAW BYTES:
+BYTES:
 ${
-  rawBytes
-    ? rawBytes.length + " bytes"
+  result.bytes
+    ? result.bytes.length + " bytes"
     : "NULL"
 }
+
+ERROR:
+${result.error ?? "none"}
 `;
 
       setDebug(debugInfo);
 
-      setData(text);
+      setData(
+        result.text
+      );
 
       setStatus(
         "Barcode found!"
@@ -112,10 +92,6 @@ ${
 
       setStatus("");
 
-    } finally {
-
-      URL.revokeObjectURL(imageUrl);
-
     }
   }
 
@@ -131,7 +107,7 @@ ${
     >
 
       <h2>
-        South African Barcode Scanner
+        ZXing WASM PDF417 Scanner
       </h2>
 
 
@@ -163,6 +139,7 @@ ${
         Debug
       </h3>
 
+
       <pre
         style={{
           background: "#eee",
@@ -177,6 +154,7 @@ ${
       <h3>
         Decoded Data
       </h3>
+
 
       <textarea
         value={data}
