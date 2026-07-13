@@ -10,15 +10,14 @@ function App() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
-
   async function scanImage(
     event: React.ChangeEvent<HTMLInputElement>
   ) {
     const file = event.target.files?.[0];
 
-    if (!file) {
-      return;
-    }
+    if (!file) return;
+
+    const imageUrl = URL.createObjectURL(file);
 
     try {
       setStatus("Reading barcode...");
@@ -32,63 +31,74 @@ function App() {
         [BarcodeFormat.PDF_417]
       );
 
+      // Spend more time looking for difficult PDF417 barcodes
+      hints.set(
+        DecodeHintType.TRY_HARDER,
+        true
+      );
 
       const reader =
         new BrowserMultiFormatReader(hints);
 
-
-      const imageUrl =
-        URL.createObjectURL(file);
-
-
       const result =
-        await reader.decodeFromImageUrl(
-          imageUrl
+        await reader.decodeFromImageUrl(imageUrl);
+
+      console.log("========== RESULT ==========");
+      console.dir(result);
+
+      console.log("TEXT:");
+      console.log(result.getText());
+
+      console.log("RAW BYTES:");
+      console.log(result.getRawBytes());
+
+      console.log("FORMAT:");
+      console.log(result.getBarcodeFormat());
+
+      const rawBytes = result.getRawBytes();
+
+      if (rawBytes) {
+        console.log(
+          "RAW BYTE ARRAY:",
+          Array.from(rawBytes)
         );
+      } else {
+        console.log(
+          "No raw bytes returned."
+        );
+      }
 
-
-      const text =
-        result.getText();
-
-
-      console.log(
-        "PDF417 DATA:",
-        text
-      );
-
-
-      setData(text);
-      setStatus("Barcode found");
-
-
-      URL.revokeObjectURL(imageUrl);
-
+      setData(result.getText());
+      setStatus("Barcode found!");
 
     } catch (err) {
-      console.error(err);
+      console.error("ZXing Error:", err);
 
-      setError(
-        "Could not read PDF417 barcode from image"
-      );
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(
+          "Could not decode PDF417 barcode."
+        );
+      }
 
       setStatus("");
 
+    } finally {
+      URL.revokeObjectURL(imageUrl);
     }
   }
-
 
   return (
     <div
       style={{
         padding: 20,
         fontFamily: "Arial",
+        maxWidth: 900,
+        margin: "0 auto",
       }}
     >
-
-      <h2>
-        PDF417 Image Scanner
-      </h2>
-
+      <h2>PDF417 Image Scanner</h2>
 
       <input
         type="file"
@@ -97,11 +107,7 @@ function App() {
         onChange={scanImage}
       />
 
-
-      <p>
-        {status}
-      </p>
-
+      <p>{status}</p>
 
       {error && (
         <p style={{ color: "red" }}>
@@ -109,11 +115,7 @@ function App() {
         </p>
       )}
 
-
-      <h3>
-        Decoded Data
-      </h3>
-
+      <h3>Decoded Data</h3>
 
       <textarea
         value={data}
@@ -121,9 +123,9 @@ function App() {
         style={{
           width: "100%",
           height: 300,
+          fontFamily: "monospace",
         }}
       />
-
     </div>
   );
 }
