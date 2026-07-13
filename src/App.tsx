@@ -4,11 +4,157 @@ import {
 } from "@sec-ant/zxing-wasm/reader";
 
 
+function preprocessImage(
+  source: ImageBitmap,
+  mode: number
+): ImageData {
+
+  const canvas =
+    document.createElement("canvas");
+
+  const scale = 2;
+
+  canvas.width =
+    source.width * scale;
+
+  canvas.height =
+    source.height * scale;
+
+
+  const ctx =
+    canvas.getContext("2d");
+
+  if (!ctx) {
+    throw new Error(
+      "Canvas unavailable"
+    );
+  }
+
+
+  ctx.drawImage(
+    source,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+
+  const image =
+    ctx.getImageData(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+
+  const pixels =
+    image.data;
+
+
+  if (mode === 0) {
+    return image;
+  }
+
+
+  for (
+    let i = 0;
+    i < pixels.length;
+    i += 4
+  ) {
+
+    const r =
+      pixels[i];
+
+    const g =
+      pixels[i + 1];
+
+    const b =
+      pixels[i + 2];
+
+
+    let gray =
+      0.299 * r +
+      0.587 * g +
+      0.114 * b;
+
+
+    if (mode === 1) {
+
+      // grayscale
+
+      pixels[i] =
+        gray;
+
+      pixels[i + 1] =
+        gray;
+
+      pixels[i + 2] =
+        gray;
+
+    }
+
+
+    if (mode === 2) {
+
+      // strong contrast
+
+      gray =
+        gray > 140
+          ? 255
+          : 0;
+
+
+      pixels[i] =
+        gray;
+
+      pixels[i + 1] =
+        gray;
+
+      pixels[i + 2] =
+        gray;
+
+    }
+
+  }
+
+
+  return image;
+}
+
+
+
+async function decode(
+  image: ImageData
+) {
+
+  return await readBarcodesFromImageData(
+    image,
+    {
+      tryHarder: true,
+      maxSymbols: 5,
+    }
+  );
+
+}
+
+
+
 function App() {
-  const [data, setData] = useState("");
-  const [status, setStatus] = useState("");
-  const [error, setError] = useState("");
-  const [debug, setDebug] = useState("");
+
+  const [data,setData] =
+    useState("");
+
+  const [status,setStatus] =
+    useState("");
+
+  const [error,setError] =
+    useState("");
+
+  const [debug,setDebug] =
+    useState("");
+
 
 
   async function scanImage(
@@ -18,171 +164,133 @@ function App() {
     const file =
       event.target.files?.[0];
 
-    if (!file) return;
+
+    if (!file) {
+      return;
+    }
 
 
     try {
 
-      setStatus("Loading image...");
+      setStatus(
+        "Loading image..."
+      );
+
       setData("");
       setError("");
       setDebug("");
 
 
+
       const bitmap =
-        await createImageBitmap(file);
+        await createImageBitmap(
+          file
+        );
 
 
-      /*
-        Resize large phone images.
-        Samsung cameras can produce
-        4000px+ images which are unnecessary
-        for barcode decoding.
-      */
 
-      const maxSize = 1800;
+      let results:any[] = [];
 
-      let width =
-        bitmap.width;
-
-      let height =
-        bitmap.height;
+      const modes =
+        [
+          0, // original
+          1, // grayscale
+          2  // high contrast
+        ];
 
 
-      if (width > maxSize || height > maxSize) {
 
-        const scale =
-          Math.min(
-            maxSize / width,
-            maxSize / height
+      for (
+        let i = 0;
+        i < modes.length;
+        i++
+      ) {
+
+        setStatus(
+          `Scanning attempt ${i + 1}/${modes.length}`
+        );
+
+
+        const image =
+          preprocessImage(
+            bitmap,
+            modes[i]
           );
 
-        width =
-          Math.floor(width * scale);
 
-        height =
-          Math.floor(height * scale);
+        results =
+          await decode(
+            image
+          );
+
+
+        if (
+          results.length > 0
+        ) {
+          break;
+        }
+
       }
 
-
-      const canvas =
-        document.createElement(
-          "canvas"
-        );
-
-      canvas.width = width;
-      canvas.height = height;
-
-
-      const ctx =
-        canvas.getContext(
-          "2d"
-        );
-
-
-      if (!ctx) {
-        throw new Error(
-          "Canvas failed"
-        );
-      }
-
-
-      ctx.drawImage(
-        bitmap,
-        0,
-        0,
-        width,
-        height
-      );
-
-
-      const imageData =
-        ctx.getImageData(
-          0,
-          0,
-          width,
-          height
-        );
-
-
-      setStatus(
-        "Scanning barcode..."
-      );
-
-
-      const results =
-        await readBarcodesFromImageData(
-          imageData,
-          {
-            tryHarder: true,
-            maxSymbols: 5,
-          }
-        );
 
 
       if (
         results.length === 0
       ) {
+
         throw new Error(
-          "No barcode detected"
+          "No barcode detected after multiple attempts"
         );
+
       }
+
 
 
       const result =
         results[0];
 
 
+
       const bytes =
-        result.bytes;
+        result.bytes as
+        Uint8Array | undefined;
 
 
-      let hex = "";
 
-      if (bytes) {
+      const hex =
+        bytes
+          ? Array.from(bytes)
+              .slice(0,150)
+              .map(
+                (b:number) =>
+                  b
+                    .toString(16)
+                    .padStart(2,"0")
+              )
+              .join(" ")
+          : "NULL";
 
-        hex =
-          Array.from(bytes)
-            .map(
-              b =>
-                b
-                  .toString(16)
-                  .padStart(2, "0")
-            )
-            .join(" ");
-      }
 
 
-      const debugOutput = `
+      setDebug(`
 
 FORMAT:
 ${result.format}
 
 
-TEXT LENGTH:
-${result.text.length}
-
-
-TEXT:
-${result.text}
-
-
 BYTE LENGTH:
-${
-  bytes
-    ? bytes.length
-    : "NULL"
-}
+${bytes?.length ?? "NULL"}
 
 
-FIRST 200 HEX BYTES:
-${hex.substring(0, 600)}
+HEX START:
+${hex}
 
-`;
 
-      setDebug(
-        debugOutput
-      );
+TEXT LENGTH:
+${result.text?.length ?? 0}
+
+`);
+
 
 
       setData(
@@ -193,6 +301,7 @@ ${hex.substring(0, 600)}
       setStatus(
         "Barcode found!"
       );
+
 
 
     } catch(err) {
@@ -209,17 +318,12 @@ ${hex.substring(0, 600)}
       );
 
 
-      setDebug(
-        "ERROR:\n\n" +
-        message
-      );
-
-
       setStatus("");
 
     }
 
   }
+
 
 
   return (
@@ -229,7 +333,7 @@ ${hex.substring(0, 600)}
         padding:20,
         fontFamily:"Arial",
         maxWidth:900,
-        margin:"auto"
+        margin:"0 auto"
       }}
     >
 
@@ -263,6 +367,7 @@ ${hex.substring(0, 600)}
       }
 
 
+
       <h3>
         Debug
       </h3>
@@ -280,8 +385,9 @@ ${hex.substring(0, 600)}
       </pre>
 
 
+
       <h3>
-        Text Output
+        Text output
       </h3>
 
 
@@ -290,10 +396,11 @@ ${hex.substring(0, 600)}
         readOnly
         style={{
           width:"100%",
-          height:200,
+          height:250,
           fontFamily:"monospace"
         }}
       />
+
 
     </div>
 
