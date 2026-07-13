@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
-  BarcodeFormat,
   DecodeHintType,
 } from "@zxing/library";
 
@@ -9,13 +8,16 @@ function App() {
   const [data, setData] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [debug, setDebug] = useState("");
 
   async function scanImage(
     event: React.ChangeEvent<HTMLInputElement>
   ) {
     const file = event.target.files?.[0];
 
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     const imageUrl = URL.createObjectURL(file);
 
@@ -23,15 +25,10 @@ function App() {
       setStatus("Reading barcode...");
       setData("");
       setError("");
+      setDebug("");
 
       const hints = new Map();
 
-      hints.set(
-        DecodeHintType.POSSIBLE_FORMATS,
-        [BarcodeFormat.PDF_417]
-      );
-
-      // Spend more time looking for difficult PDF417 barcodes
       hints.set(
         DecodeHintType.TRY_HARDER,
         true
@@ -40,54 +37,69 @@ function App() {
       const reader =
         new BrowserMultiFormatReader(hints);
 
+
       const result =
         await reader.decodeFromImageUrl(imageUrl);
 
-      console.log("========== RESULT ==========");
-      console.dir(result);
 
-      console.log("TEXT:");
-      console.log(result.getText());
+      const text =
+        result.getText();
 
-      console.log("RAW BYTES:");
-      console.log(result.getRawBytes());
+      const rawBytes =
+        result.getRawBytes();
 
-      console.log("FORMAT:");
-      console.log(result.getBarcodeFormat());
 
-      const rawBytes = result.getRawBytes();
+      const debugInfo = `
+FORMAT:
+${result.getBarcodeFormat()}
 
-      if (rawBytes) {
-        console.log(
-          "RAW BYTE ARRAY:",
-          Array.from(rawBytes)
-        );
-      } else {
-        console.log(
-          "No raw bytes returned."
-        );
-      }
+TEXT LENGTH:
+${text.length}
 
-      setData(result.getText());
-      setStatus("Barcode found!");
+TEXT:
+${text}
+
+RAW BYTES:
+${
+  rawBytes
+    ? "YES - " + rawBytes.length + " bytes"
+    : "NULL"
+}
+      `;
+
+
+      setDebug(debugInfo);
+
+      setData(text);
+
+      setStatus(
+        "Barcode found!"
+      );
+
 
     } catch (err) {
-      console.error("ZXing Error:", err);
 
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(
-          "Could not decode PDF417 barcode."
-        );
-      }
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unknown error";
+
+
+      setError(message);
+
+      setDebug(
+        "ERROR:\n\n" + message
+      );
 
       setStatus("");
 
     } finally {
+
       URL.revokeObjectURL(imageUrl);
+
     }
   }
+
 
   return (
     <div
@@ -98,7 +110,11 @@ function App() {
         margin: "0 auto",
       }}
     >
-      <h2>PDF417 Image Scanner</h2>
+
+      <h2>
+        PDF417 Scanner Test
+      </h2>
+
 
       <input
         type="file"
@@ -107,15 +123,44 @@ function App() {
         onChange={scanImage}
       />
 
-      <p>{status}</p>
+
+      <p>
+        {status}
+      </p>
+
 
       {error && (
-        <p style={{ color: "red" }}>
+        <p
+          style={{
+            color: "red",
+          }}
+        >
           {error}
         </p>
       )}
 
-      <h3>Decoded Data</h3>
+
+      <h3>
+        Debug Result
+      </h3>
+
+
+      <pre
+        style={{
+          background: "#eee",
+          padding: 10,
+          whiteSpace: "pre-wrap",
+          fontSize: 14,
+        }}
+      >
+        {debug}
+      </pre>
+
+
+      <h3>
+        Decoded Data
+      </h3>
+
 
       <textarea
         value={data}
@@ -126,6 +171,7 @@ function App() {
           fontFamily: "monospace",
         }}
       />
+
     </div>
   );
 }
