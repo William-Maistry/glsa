@@ -16,9 +16,7 @@ function App() {
   ) {
     const file = event.target.files?.[0];
 
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     const imageUrl = URL.createObjectURL(file);
 
@@ -40,21 +38,13 @@ function App() {
         true
       );
 
-      hints.set(
-        DecodeHintType.PURE_BARCODE,
-        true
-      );
-
-
       const reader =
         new BrowserMultiFormatReader(hints);
 
 
-      const img =
-        new Image();
+      const img = new Image();
 
       img.src = imageUrl;
-
 
       await new Promise((resolve, reject) => {
         img.onload = resolve;
@@ -62,80 +52,66 @@ function App() {
       });
 
 
+      setDebug(
+        `IMAGE SIZE:
+${img.width} x ${img.height}
+
+FILE SIZE:
+${Math.round(file.size / 1024)} KB
+
+Trying PDF417 decode...`
+      );
+
+
       const result =
         await reader.decodeFromImageElement(img);
 
 
-      const text =
-        result.getText();
-
-      const rawBytes =
+      const raw =
         result.getRawBytes();
 
 
-      const debugText = `
-FORMAT:
+      setDebug(
+        `FORMAT:
 ${result.getBarcodeFormat()}
 
-TEXT LENGTH:
-${text.length}
-
 TEXT:
-${text}
+${result.getText()}
 
 RAW BYTES:
-${
-  rawBytes
-    ? "YES - " + rawBytes.length + " bytes"
-    : "NULL"
-}
-`;
-
-      setDebug(debugText);
-
-      setData(text);
-
-      setStatus(
-        "Barcode found!"
+${raw ? raw.length : "NULL"}`
       );
 
 
+      setData(result.getText());
+      setStatus("Barcode found!");
+
     } catch (err) {
 
-      const message =
+      const msg =
         err instanceof Error
           ? err.message
           : "Unknown error";
 
-
-      setError(message);
+      setError(msg);
 
       setDebug(
-        "ERROR:\n\n" + message
+        `FAILED:
+
+${msg}`
       );
 
       setStatus("");
 
     } finally {
-
       URL.revokeObjectURL(imageUrl);
-
     }
   }
 
 
   return (
-    <div
-      style={{
-        padding: 20,
-        fontFamily: "Arial",
-      }}
-    >
-
-      <h2>
-        PDF417 Scanner Test
-      </h2>
-
+    <div style={{ padding: 20 }}>
+      <h2>PDF417 Test</h2>
 
       <input
         type="file"
@@ -144,11 +120,7 @@ ${
         onChange={scanImage}
       />
 
-
-      <p>
-        {status}
-      </p>
-
+      <p>{status}</p>
 
       {error && (
         <p style={{ color: "red" }}>
@@ -156,35 +128,22 @@ ${
         </p>
       )}
 
+      <h3>Debug</h3>
 
-      <h3>
-        Debug
-      </h3>
-
-      <pre
-        style={{
-          background: "#eee",
-          padding: 10,
-          whiteSpace: "pre-wrap",
-        }}
-      >
+      <pre>
         {debug}
       </pre>
 
-
-      <h3>
-        Data
-      </h3>
+      <h3>Data</h3>
 
       <textarea
         value={data}
         readOnly
         style={{
           width: "100%",
-          height: 300,
+          height: 250
         }}
       />
-
     </div>
   );
 }
