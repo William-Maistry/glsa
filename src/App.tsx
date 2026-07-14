@@ -17,8 +17,7 @@ import {
 function sleep(ms:number){
 
   return new Promise(
-    resolve =>
-      setTimeout(resolve, ms)
+    resolve => setTimeout(resolve, ms)
   );
 
 }
@@ -92,7 +91,6 @@ async function scanImage(
   setDebug:(x:string)=>void
 ){
 
-
   const results =
     await readBarcodesFromImageData(
       image,
@@ -105,10 +103,8 @@ async function scanImage(
 
 
   setDebug(
-    `ZXing detected: ${results.length} barcode(s)\n` +
-    `Bytes: ${
-      results[0]?.bytes?.length ?? 0
-    }`
+    `ZXing detected: ${results.length}\n` +
+    `Bytes: ${results[0]?.bytes?.length ?? 0}`
   );
 
 
@@ -144,7 +140,7 @@ async function tryDecode(
 
     setDebug(
       (window as any).__licenseDebug ||
-      "No parser debug data"
+      "No parser debug available"
     );
 
 
@@ -172,9 +168,21 @@ async function tryDecode(
   catch(e){
 
 
+    const message =
+      e instanceof Error
+      ? e.message
+      : String(e);
+
+
+
     setDebug(
-      "Decode error:\n" +
-      String(e)
+      "DECODE ERROR:\n\n" +
+      message +
+      "\n\n" +
+      (
+        (window as any).__licenseDebug ||
+        "No parser debug available"
+      )
     );
 
 
@@ -264,7 +272,7 @@ function App(){
 
         if(
           !videoRef.current ||
-          videoRef.current.videoWidth === 0
+          videoRef.current.videoWidth===0
         ){
 
           await sleep(200);
@@ -303,7 +311,6 @@ function App(){
 
 
         busy.current=false;
-
 
 
 
@@ -352,7 +359,6 @@ function App(){
 
 
 
-
       await sleep(100);
 
     }
@@ -372,7 +378,6 @@ useEffect(()=>{
 
   let stream:
     MediaStream|null=null;
-
 
 
 
@@ -408,7 +413,6 @@ useEffect(()=>{
 
 
 
-
       if(videoRef.current){
 
         videoRef.current.srcObject =
@@ -433,11 +437,9 @@ useEffect(()=>{
     }
     catch(e){
 
-
       setError(
         String(e)
       );
-
 
     }
 
@@ -557,7 +559,6 @@ async function handleImage(
 
 
 
-
     const results =
       await scanImage(
         image,
@@ -594,7 +595,7 @@ async function handleImage(
 
 
     setStatus(
-      "Barcode found but decode failed"
+      "Barcode found but licence decode failed. Check Parser Debug."
     );
 
 
@@ -657,7 +658,6 @@ border:"3px solid black"
 
 
 
-
 <input
 
 type="file"
@@ -674,16 +674,10 @@ onChange={handleImage}
 
 {
 error &&
-<p
-style={{
-color:"red"
-}}
->
+<p style={{color:"red"}}>
 {error}
 </p>
 }
-
-
 
 
 
@@ -704,8 +698,6 @@ whiteSpace:"pre-wrap"
 
 
 
-
-
 <h3>
 Parser Debug
 </h3>
@@ -720,7 +712,6 @@ whiteSpace:"pre-wrap"
 >
 {debug}
 </pre>
-
 
 
 </div>
