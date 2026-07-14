@@ -14,14 +14,10 @@ import {
 
 
 
-
 function sleep(ms:number){
-
   return new Promise(
-    resolve =>
-      setTimeout(resolve,ms)
+    resolve => setTimeout(resolve, ms)
   );
-
 }
 
 
@@ -29,39 +25,35 @@ function sleep(ms:number){
 
 function processFrame(
   source:HTMLVideoElement
-):ImageData{
+):ImageData {
 
 
   const canvas =
-    document.createElement(
-      "canvas"
-    );
+    document.createElement("canvas");
 
 
-  const scale = 2;
-
+  /*
+    Do not upscale.
+    PDF417 detection works better
+    with a clean native image.
+  */
 
   canvas.width =
-    source.videoWidth * scale;
-
+    source.videoWidth;
 
   canvas.height =
-    source.videoHeight * scale;
+    source.videoHeight;
 
 
 
   const ctx =
-    canvas.getContext(
-      "2d"
-    );
+    canvas.getContext("2d");
 
 
   if(!ctx){
-
     throw new Error(
       "Canvas error"
     );
-
   }
 
 
@@ -97,7 +89,7 @@ async function scanImage(
     image,
     {
       tryHarder:true,
-      maxSymbols:5
+      maxSymbols:10
     }
   );
 
@@ -107,20 +99,44 @@ async function scanImage(
 
 
 
-async function decodeBytes(
+async function tryDecode(
   bytes:Uint8Array,
   setData:(x:string)=>void,
   setStatus:(x:string)=>void
-){
+):Promise<boolean>{
 
 
-  try {
+  try{
+
+    console.log(
+      "Barcode bytes:",
+      bytes.length
+    );
 
 
     const decoded =
       decodeSALicense(
         bytes
       );
+
+
+    /*
+      Basic validation.
+      Prevent displaying garbage parses.
+    */
+
+    if(
+      !decoded.idNumber &&
+      !decoded.surname &&
+      !decoded.licenseNumber
+    ){
+
+      throw new Error(
+        "Invalid licence data"
+      );
+
+    }
+
 
 
     setData(
@@ -137,17 +153,24 @@ async function decodeBytes(
     );
 
 
+    return true;
+
+
   }
   catch(e){
 
-    setStatus(
-      "Decode failed: " +
-      String(e)
+    console.log(
+      "Decode failed",
+      e
     );
+
+
+    return false;
 
   }
 
 }
+
 
 
 
@@ -161,9 +184,12 @@ function App(){
     useRef<HTMLVideoElement>(null);
 
 
-
   const running =
     useRef(true);
+
+
+  const scanning =
+    useRef(false);
 
 
 
@@ -174,7 +200,6 @@ function App(){
   useState(
     "Starting camera..."
   );
-
 
 
   const [
@@ -190,6 +215,8 @@ function App(){
     setError
   ] =
   useState("");
+
+
 
 
 
@@ -218,6 +245,19 @@ function App(){
 
 
 
+        if(scanning.current){
+
+          await sleep(100);
+          continue;
+
+        }
+
+
+
+        scanning.current=true;
+
+
+
         const image =
           processFrame(
             videoRef.current
@@ -232,34 +272,44 @@ function App(){
 
 
 
-        if(
-          results.length
-        ){
-
-
-          const bytes = results[0].bytes as Uint8Array | undefined;
+        scanning.current=false;
 
 
 
-          if(bytes){
+        if(results.length){
 
-            await decodeBytes(
-              bytes,
-              setData,
-              setStatus
-            );
+
+          for(
+            const result of results
+          ){
+
+            const bytes =
+              result.bytes as Uint8Array | undefined;
+
+
+            if(bytes){
+
+              const success =
+                await tryDecode(
+                  bytes,
+                  setData,
+                  setStatus
+                );
+
+
+              if(success){
+
+                running.current=false;
+                return;
+
+              }
+
+            }
 
           }
 
-
-
-          running.current =
-            false;
-
-
-          return;
-
         }
+
 
 
       }
@@ -267,15 +317,19 @@ function App(){
 
         console.log(e);
 
+        scanning.current=false;
+
       }
 
 
 
-      await sleep(300);
+      await sleep(75);
 
     }
 
   }
+
+
 
 
 
@@ -302,17 +356,17 @@ function App(){
           .getUserMedia({
 
             video:{
+
               facingMode:{
-                ideal:
-                "environment"
+                ideal:"environment"
               },
 
               width:{
-                ideal:1920
+                ideal:1280
               },
 
               height:{
-                ideal:1080
+                ideal:720
               }
 
             },
@@ -336,7 +390,7 @@ function App(){
 
 
         setStatus(
-          "Camera active - scanning"
+          "Camera active - position barcode in view"
         );
 
 
@@ -366,7 +420,6 @@ function App(){
       running.current=false;
 
 
-
       if(stream){
 
         stream
@@ -377,10 +430,12 @@ function App(){
 
       }
 
+
     };
 
 
   },[]);
+
 
 
 
@@ -400,6 +455,12 @@ function App(){
 
     if(!file)
       return;
+
+
+
+    setStatus(
+      "Processing image..."
+    );
 
 
 
@@ -463,25 +524,46 @@ function App(){
 
 
 
-      if(results.length){
-
-        const bytes = results[0].bytes as Uint8Array;
-
-
-        await decodeBytes(
-          bytes,
-          setData,
-          setStatus
-        );
-
-      }
-      else{
+      if(!results.length){
 
         setStatus(
-          "No PDF417 found"
+          "No PDF417 barcode found"
         );
 
+        return;
+
       }
+
+
+
+
+      for(
+        const result of results
+      ){
+
+        const bytes =
+          result.bytes as Uint8Array;
+
+
+
+        const success =
+          await tryDecode(
+            bytes,
+            setData,
+            setStatus
+          );
+
+
+        if(success)
+          return;
+
+      }
+
+
+
+      setStatus(
+        "Barcode found but licence decode failed"
+      );
 
 
     };
@@ -491,7 +573,10 @@ function App(){
     img.src =
       URL.createObjectURL(file);
 
+
   }
+
+
 
 
 
@@ -515,6 +600,7 @@ South African Licence Scanner
 
 
 
+
 <video
 
 ref={videoRef}
@@ -526,10 +612,11 @@ muted
 style={{
 width:"100%",
 maxWidth:600,
-border:"2px solid black"
+border:"3px solid black"
 }}
 
 />
+
 
 
 
@@ -539,12 +626,21 @@ border:"2px solid black"
 
 
 
+
+
 <input
+
 type="file"
+
 accept="image/*"
+
 capture="environment"
+
 onChange={handleImage}
+
 />
+
+
 
 
 
@@ -558,9 +654,12 @@ error &&
 
 
 
+
+
 <h3>
 Decoded Data
 </h3>
+
 
 
 <pre
@@ -572,6 +671,7 @@ whiteSpace:"pre-wrap"
 >
 {data}
 </pre>
+
 
 
 </div>
