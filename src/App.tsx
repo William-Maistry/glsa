@@ -491,7 +491,6 @@ async function handleImage(
     e.target.files?.[0];
 
 
-
   if(!file)
     return;
 
@@ -502,10 +501,12 @@ async function handleImage(
   );
 
 
+  setDebug("");
+
+
 
   const img =
     new Image();
-
 
 
 
@@ -517,7 +518,6 @@ async function handleImage(
       document.createElement(
         "canvas"
       );
-
 
 
     canvas.width =
@@ -567,6 +567,33 @@ async function handleImage(
 
 
 
+
+    /*
+      No barcode found
+    */
+
+    if(results.length === 0){
+
+      setStatus(
+        "No PDF417 barcode detected"
+      );
+
+      setDebug(
+        "ZXing found no barcode in image"
+      );
+
+      return;
+
+    }
+
+
+
+
+
+    /*
+      Barcode found
+    */
+
     for(
       const result of results
     ){
@@ -574,6 +601,14 @@ async function handleImage(
 
       const bytes =
         result.bytes as Uint8Array;
+
+
+
+      if(!bytes){
+
+        continue;
+
+      }
 
 
 
@@ -587,15 +622,19 @@ async function handleImage(
 
 
 
-      if(success)
+      if(success){
+
         return;
+
+      }
 
     }
 
 
 
+
     setStatus(
-      "Barcode found but licence decode failed. Check Parser Debug."
+      "PDF417 detected but licence decoding failed"
     );
 
 
@@ -608,7 +647,6 @@ async function handleImage(
 
 
 }
-
 
 
 
