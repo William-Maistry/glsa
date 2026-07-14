@@ -15,9 +15,12 @@ import {
 
 
 function sleep(ms:number){
+
   return new Promise(
-    resolve => setTimeout(resolve, ms)
+    resolve =>
+      setTimeout(resolve, ms)
   );
+
 }
 
 
@@ -29,17 +32,14 @@ function processFrame(
 
 
   const canvas =
-    document.createElement("canvas");
+    document.createElement(
+      "canvas"
+    );
 
-
-  /*
-    Do not upscale.
-    PDF417 detection works better
-    with a clean native image.
-  */
 
   canvas.width =
     source.videoWidth;
+
 
   canvas.height =
     source.videoHeight;
@@ -47,13 +47,17 @@ function processFrame(
 
 
   const ctx =
-    canvas.getContext("2d");
+    canvas.getContext(
+      "2d"
+    );
 
 
   if(!ctx){
+
     throw new Error(
       "Canvas error"
     );
+
   }
 
 
@@ -81,19 +85,40 @@ function processFrame(
 
 
 
+
+
 async function scanImage(
-  image:ImageData
+  image:ImageData,
+  setDebug:(x:string)=>void
 ){
 
-  return await readBarcodesFromImageData(
-    image,
-    {
-      tryHarder:true,
-      maxSymbols:10
-    }
+
+  const results =
+    await readBarcodesFromImageData(
+      image,
+      {
+        tryHarder:true,
+        maxSymbols:10
+      }
+    );
+
+
+
+  setDebug(
+    `ZXing detected: ${results.length} barcode(s)\n` +
+    `Bytes: ${
+      results[0]?.bytes?.length ?? 0
+    }`
   );
 
+
+
+  return results;
+
 }
+
+
+
 
 
 
@@ -102,16 +127,12 @@ async function scanImage(
 async function tryDecode(
   bytes:Uint8Array,
   setData:(x:string)=>void,
-  setStatus:(x:string)=>void
+  setStatus:(x:string)=>void,
+  setDebug:(x:string)=>void
 ):Promise<boolean>{
 
 
   try{
-
-    console.log(
-      "Barcode bytes:",
-      bytes.length
-    );
 
 
     const decoded =
@@ -120,22 +141,11 @@ async function tryDecode(
       );
 
 
-    /*
-      Basic validation.
-      Prevent displaying garbage parses.
-    */
 
-    if(
-      !decoded.idNumber &&
-      !decoded.surname &&
-      !decoded.licenseNumber
-    ){
-
-      throw new Error(
-        "Invalid licence data"
-      );
-
-    }
+    setDebug(
+      (window as any).__licenseDebug ||
+      "No parser debug data"
+    );
 
 
 
@@ -148,9 +158,11 @@ async function tryDecode(
     );
 
 
+
     setStatus(
       "Licence decoded successfully"
     );
+
 
 
     return true;
@@ -159,9 +171,10 @@ async function tryDecode(
   }
   catch(e){
 
-    console.log(
-      "Decode failed",
-      e
+
+    setDebug(
+      "Decode error:\n" +
+      String(e)
     );
 
 
@@ -177,6 +190,8 @@ async function tryDecode(
 
 
 
+
+
 function App(){
 
 
@@ -184,12 +199,15 @@ function App(){
     useRef<HTMLVideoElement>(null);
 
 
+
   const running =
     useRef(true);
 
 
-  const scanning =
+
+  const busy =
     useRef(false);
+
 
 
 
@@ -202,9 +220,18 @@ function App(){
   );
 
 
+
   const [
     data,
     setData
+  ] =
+  useState("");
+
+
+
+  const [
+    debug,
+    setDebug
   ] =
   useState("");
 
@@ -215,6 +242,8 @@ function App(){
     setError
   ] =
   useState("");
+
+
 
 
 
@@ -235,7 +264,7 @@ function App(){
 
         if(
           !videoRef.current ||
-          videoRef.current.videoWidth===0
+          videoRef.current.videoWidth === 0
         ){
 
           await sleep(200);
@@ -245,16 +274,16 @@ function App(){
 
 
 
-        if(scanning.current){
+        if(busy.current){
 
-          await sleep(100);
+          await sleep(50);
           continue;
 
         }
 
 
 
-        scanning.current=true;
+        busy.current=true;
 
 
 
@@ -267,63 +296,64 @@ function App(){
 
         const results =
           await scanImage(
-            image
+            image,
+            setDebug
           );
 
 
 
-        scanning.current=false;
+        busy.current=false;
 
 
 
-        if(results.length){
+
+        for(
+          const result of results
+        ){
 
 
-          for(
-            const result of results
-          ){
-
-            const bytes =
-              result.bytes as Uint8Array | undefined;
+          const bytes =
+            result.bytes as Uint8Array;
 
 
-            if(bytes){
 
-              const success =
-                await tryDecode(
-                  bytes,
-                  setData,
-                  setStatus
-                );
+          const success =
+            await tryDecode(
+              bytes,
+              setData,
+              setStatus,
+              setDebug
+            );
 
 
-              if(success){
 
-                running.current=false;
-                return;
+          if(success){
 
-              }
-
-            }
+            running.current=false;
+            return;
 
           }
 
         }
 
 
-
       }
       catch(e){
 
-        console.log(e);
 
-        scanning.current=false;
+        busy.current=false;
+
+
+        setDebug(
+          String(e)
+        );
 
       }
 
 
 
-      await sleep(75);
+
+      await sleep(100);
 
     }
 
@@ -337,244 +367,247 @@ function App(){
 
 
 
-  useEffect(()=>{
+useEffect(()=>{
 
 
-    let stream:
-      MediaStream|null=null;
+  let stream:
+    MediaStream|null=null;
 
 
 
-    async function start(){
+
+  async function start(){
 
 
-      try{
+    try{
 
 
-        stream =
-          await navigator.mediaDevices
-          .getUserMedia({
+      stream =
+        await navigator.mediaDevices
+        .getUserMedia({
 
-            video:{
+          video:{
 
-              facingMode:{
-                ideal:"environment"
-              },
-
-              width:{
-                ideal:1280
-              },
-
-              height:{
-                ideal:720
-              }
-
+            facingMode:{
+              ideal:"environment"
             },
 
-            audio:false
+            width:{
+              ideal:1920
+            },
 
-          });
+            height:{
+              ideal:1080
+            }
 
+          },
 
+          audio:false
 
-        if(videoRef.current){
+        });
 
-          videoRef.current.srcObject =
-            stream;
 
 
-          await videoRef.current.play();
 
-        }
+      if(videoRef.current){
 
+        videoRef.current.srcObject =
+          stream;
 
 
-        setStatus(
-          "Camera active - position barcode in view"
-        );
-
-
-        scanLoop();
-
-
-      }
-      catch(e){
-
-        setError(
-          String(e)
-        );
-
-      }
-
-    }
-
-
-
-    start();
-
-
-
-    return()=>{
-
-
-      running.current=false;
-
-
-      if(stream){
-
-        stream
-        .getTracks()
-        .forEach(
-          t=>t.stop()
-        );
-
-      }
-
-
-    };
-
-
-  },[]);
-
-
-
-
-
-
-
-
-
-  async function handleImage(
-    e:React.ChangeEvent<HTMLInputElement>
-  ){
-
-
-    const file =
-      e.target.files?.[0];
-
-
-    if(!file)
-      return;
-
-
-
-    setStatus(
-      "Processing image..."
-    );
-
-
-
-    const img =
-      new Image();
-
-
-
-    img.onload =
-    async()=>{
-
-
-      const canvas =
-        document.createElement(
-          "canvas"
-        );
-
-
-      canvas.width =
-        img.width;
-
-
-      canvas.height =
-        img.height;
-
-
-
-      const ctx =
-        canvas.getContext(
-          "2d"
-        );
-
-
-      if(!ctx)
-        return;
-
-
-
-      ctx.drawImage(
-        img,
-        0,
-        0
-      );
-
-
-
-      const image =
-        ctx.getImageData(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-
-
-
-      const results =
-        await scanImage(
-          image
-        );
-
-
-
-      if(!results.length){
-
-        setStatus(
-          "No PDF417 barcode found"
-        );
-
-        return;
-
-      }
-
-
-
-
-      for(
-        const result of results
-      ){
-
-        const bytes =
-          result.bytes as Uint8Array;
-
-
-
-        const success =
-          await tryDecode(
-            bytes,
-            setData,
-            setStatus
-          );
-
-
-        if(success)
-          return;
+        await videoRef.current.play();
 
       }
 
 
 
       setStatus(
-        "Barcode found but licence decode failed"
+        "Camera active - align barcode"
       );
 
 
-    };
+
+      scanLoop();
 
 
+    }
+    catch(e){
 
-    img.src =
-      URL.createObjectURL(file);
 
+      setError(
+        String(e)
+      );
+
+
+    }
 
   }
+
+
+
+  start();
+
+
+
+
+  return()=>{
+
+
+    running.current=false;
+
+
+
+    if(stream){
+
+      stream
+      .getTracks()
+      .forEach(
+        t=>t.stop()
+      );
+
+    }
+
+  };
+
+
+},[]);
+
+
+
+
+
+
+
+
+
+async function handleImage(
+  e:React.ChangeEvent<HTMLInputElement>
+){
+
+
+  const file =
+    e.target.files?.[0];
+
+
+
+  if(!file)
+    return;
+
+
+
+  setStatus(
+    "Processing image..."
+  );
+
+
+
+  const img =
+    new Image();
+
+
+
+
+  img.onload =
+  async()=>{
+
+
+    const canvas =
+      document.createElement(
+        "canvas"
+      );
+
+
+
+    canvas.width =
+      img.width;
+
+
+    canvas.height =
+      img.height;
+
+
+
+    const ctx =
+      canvas.getContext(
+        "2d"
+      );
+
+
+
+    if(!ctx)
+      return;
+
+
+
+    ctx.drawImage(
+      img,
+      0,
+      0
+    );
+
+
+
+    const image =
+      ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+
+
+
+    const results =
+      await scanImage(
+        image,
+        setDebug
+      );
+
+
+
+    for(
+      const result of results
+    ){
+
+
+      const bytes =
+        result.bytes as Uint8Array;
+
+
+
+      const success =
+        await tryDecode(
+          bytes,
+          setData,
+          setStatus,
+          setDebug
+        );
+
+
+
+      if(success)
+        return;
+
+    }
+
+
+
+    setStatus(
+      "Barcode found but decode failed"
+    );
+
+
+  };
+
+
+
+  img.src =
+    URL.createObjectURL(file);
+
+
+}
+
 
 
 
@@ -600,7 +633,6 @@ South African Licence Scanner
 
 
 
-
 <video
 
 ref={videoRef}
@@ -619,11 +651,9 @@ border:"3px solid black"
 
 
 
-
 <h3>
 {status}
 </h3>
-
 
 
 
@@ -642,15 +672,16 @@ onChange={handleImage}
 
 
 
-
-
 {
 error &&
-<p style={{color:"red"}}>
+<p
+style={{
+color:"red"
+}}
+>
 {error}
 </p>
 }
-
 
 
 
@@ -661,7 +692,6 @@ Decoded Data
 </h3>
 
 
-
 <pre
 style={{
 background:"#eee",
@@ -670,6 +700,25 @@ whiteSpace:"pre-wrap"
 }}
 >
 {data}
+</pre>
+
+
+
+
+
+<h3>
+Parser Debug
+</h3>
+
+
+<pre
+style={{
+background:"#ddd",
+padding:15,
+whiteSpace:"pre-wrap"
+}}
+>
+{debug}
 </pre>
 
 

@@ -49,6 +49,7 @@ function decodeDate(
 
 
 
+
 function bytesToNibbles(
   bytes: Uint8Array
 ): string {
@@ -73,6 +74,7 @@ function bytesToNibbles(
   return result;
 
 }
+
 
 
 
@@ -125,7 +127,7 @@ function splitStrings(
 
 
 
-  if (current.length) {
+  if(current.length){
     values.push(current);
   }
 
@@ -139,26 +141,12 @@ function splitStrings(
 
 
 
+
+
+
 export function parseLicenseData(
   bytes: Uint8Array
 ): SALicenseData {
-
-
-
-  /*
-      Decrypted structure:
-
-      0-9
-      Header
-
-      10+
-      String section
-
-      Binary section
-
-      Image section
-
-  */
 
 
 
@@ -171,12 +159,15 @@ export function parseLicenseData(
 
 
 
-  const stringStart = 10;
+  const stringStart =
+    10;
+
 
 
   const stringEnd =
     stringStart +
     stringLength;
+
 
 
 
@@ -188,10 +179,29 @@ export function parseLicenseData(
 
 
 
+
   const fields =
     splitStrings(
       stringBytes
     );
+
+
+
+
+  /*
+    Temporary phone-friendly debug
+  */
+
+  (window as any).__licenseDebug =
+    fields
+    .map(
+      (field,index)=>
+        `${index} => ${field}`
+    )
+    .join("\n");
+
+
+
 
 
 
@@ -266,14 +276,11 @@ export function parseLicenseData(
 
 
 
-  /*
-      Binary section starts
-      immediately after strings
-  */
 
 
   const binaryStart =
     stringEnd;
+
 
 
   const binaryEnd =
@@ -301,19 +308,24 @@ export function parseLicenseData(
 
 
 
-  // ID type
+
+
   result.idNumberType =
     nibbles.substring(
       pos,
       pos + 2
     );
 
+
   pos += 2;
 
 
 
-  // Four possible vehicle issue dates
+
+
+
   const issueDates:string[] = [];
+
 
 
   for(
@@ -329,18 +341,22 @@ export function parseLicenseData(
       );
 
 
-    if(
-      part.length === 8
-    ){
+    if(part.length === 8){
+
       issueDates.push(
         decodeDate(part)
       );
+
     }
 
 
     pos += 8;
 
   }
+
+
+
+
 
 
 
@@ -356,11 +372,15 @@ export function parseLicenseData(
 
 
 
+
+
+
   const prdp =
     nibbles.substring(
       pos,
       pos + 8
     );
+
 
 
   if(
@@ -374,7 +394,10 @@ export function parseLicenseData(
   }
 
 
+
   pos += 8;
+
+
 
 
 
@@ -386,7 +409,10 @@ export function parseLicenseData(
     );
 
 
+
   pos += 2;
+
+
 
 
 
@@ -405,6 +431,8 @@ export function parseLicenseData(
 
 
 
+
+
   result.licenseValidityStart =
     decodeDate(
       nibbles.substring(
@@ -415,6 +443,8 @@ export function parseLicenseData(
 
 
   pos += 8;
+
+
 
 
 
@@ -433,6 +463,8 @@ export function parseLicenseData(
 
 
 
+
+
   result.gender =
     nibbles.substring(
       pos,
@@ -441,11 +473,8 @@ export function parseLicenseData(
 
 
 
-  /*
-     Vehicle licences are
-     expanded later once we
-     validate against more samples.
-  */
+
+
 
 
 
@@ -454,13 +483,16 @@ export function parseLicenseData(
     code:
       fields[0] ?? "",
 
+
     restriction:
       fields[5] ?? "",
+
 
     firstIssueDate:
       issueDates[0] ?? ""
 
   };
+
 
 
 
@@ -471,6 +503,8 @@ export function parseLicenseData(
     );
 
   }
+
+
 
 
 
