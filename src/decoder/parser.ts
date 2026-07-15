@@ -189,12 +189,25 @@ export function parseLicenseData(
 
 
   (window as any).__licenseDebug =
-    fields
-    .map(
-      (x,i)=>
-        `${i} => ${x}`
-    )
-    .join("\n");
+
+"FIELDS\n\n"
+
++
+
+fields
+.map(
+(x,i)=>
+`${i} => ${x}`
+)
+.join("\n")
+
++
+
+"\n\nRAW PAYLOAD"
+
++
+
+(window as any).__payloadHex;
 
 
 
@@ -588,10 +601,28 @@ export function parseLicenseData(
 
 
   (window as any).__licenseDebug +=
-    "\n\nNIBBLES:\n" +
-    nibbles +
-    "\n\nPOSITION:\n" +
-    pos;
+
+"\n\n"
+
++
+
+"NIBBLES\n"
+
++
+
+nibbles
+
++
+
+"\n\n"
+
++
+
+"POSITION\n"
+
++
+
+pos;
 
 
 
