@@ -140,11 +140,16 @@ export function decodeSALicense(
 
   }
 
-  (window as any).__payloadHex =
-    hex;
+ (window as any).__payloadHex =
+  hex;
 
-  return parseLicenseData(
-    decrypted
-  );
+
+const payload =
+  decrypted.slice(10);
+
+
+return parseLicenseData(
+  payload
+);
 
 }
