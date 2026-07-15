@@ -188,9 +188,6 @@ export function parseLicenseData(
 
 
 
-  /*
-    Temporary phone-friendly debug
-  */
 
   (window as any).__licenseDebug =
     fields
@@ -199,6 +196,7 @@ export function parseLicenseData(
         `${index} => ${field}`
     )
     .join("\n");
+
 
 
 
@@ -217,15 +215,15 @@ export function parseLicenseData(
 
 
     idCountryOfIssue:
-      fields[3] ?? "",
+      fields[2] ?? "",
 
 
     surname:
-      fields[1] ?? "",
+      fields[0] ?? "",
 
 
     initials:
-      fields[2] ?? "",
+      fields[1] ?? "",
 
 
     gender:
@@ -241,7 +239,7 @@ export function parseLicenseData(
 
 
     licenseCountryOfIssue:
-      fields[4] ?? "",
+      fields[3] ?? "",
 
 
     licenseIssueNumber:
@@ -278,6 +276,7 @@ export function parseLicenseData(
 
 
 
+
   const binaryStart =
     stringEnd;
 
@@ -297,10 +296,23 @@ export function parseLicenseData(
 
 
 
+
   const nibbles =
     bytesToNibbles(
       binary
     );
+
+
+
+  /*
+    Temporary binary debugging
+  */
+
+  (window as any).__licenseDebug +=
+    "\n\nNIBBLES:\n" +
+    nibbles;
+
+
 
 
 
@@ -324,13 +336,14 @@ export function parseLicenseData(
 
 
 
+
   const issueDates:string[] = [];
 
 
 
   for(
-    let i=0;
-    i<4;
+    let i = 0;
+    i < 4;
     i++
   ){
 
@@ -374,7 +387,6 @@ export function parseLicenseData(
 
 
 
-
   const prdp =
     nibbles.substring(
       pos,
@@ -402,6 +414,7 @@ export function parseLicenseData(
 
 
 
+
   result.licenseIssueNumber =
     nibbles.substring(
       pos,
@@ -409,8 +422,9 @@ export function parseLicenseData(
     );
 
 
-
   pos += 2;
+
+
 
 
 
@@ -433,6 +447,7 @@ export function parseLicenseData(
 
 
 
+
   result.licenseValidityStart =
     decodeDate(
       nibbles.substring(
@@ -443,6 +458,7 @@ export function parseLicenseData(
 
 
   pos += 8;
+
 
 
 
@@ -465,6 +481,7 @@ export function parseLicenseData(
 
 
 
+
   result.gender =
     nibbles.substring(
       pos,
@@ -478,10 +495,16 @@ export function parseLicenseData(
 
 
 
+  /*
+    Temporarily disabled because
+    current mapping is incorrect.
+  */
+
+
   const vehicle:VehicleLicense = {
 
     code:
-      fields[0] ?? "",
+      "",
 
 
     restriction:
@@ -495,7 +518,6 @@ export function parseLicenseData(
 
 
 
-
   if(vehicle.code){
 
     result.vehicleLicenses.push(
@@ -503,7 +525,6 @@ export function parseLicenseData(
     );
 
   }
-
 
 
 
