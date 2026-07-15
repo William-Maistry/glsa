@@ -141,7 +141,7 @@ export function decodeSALicense(
   }
 
 const payload =
-  decrypted.slice(20);
+  decrypted.slice(16);
 
 
 let payloadHex = "";
