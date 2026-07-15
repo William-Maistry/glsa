@@ -80,7 +80,7 @@ async function scanImage(
       image,
       {
         tryHarder:true,
-        maxSymbols:10
+        maxSymbols:1
       }
     );
 
@@ -467,8 +467,6 @@ function App(){
 
 
 
-
-
 async function handleImage(
   e:React.ChangeEvent<HTMLInputElement>
 ){
@@ -486,6 +484,7 @@ async function handleImage(
     "Processing image..."
   );
 
+
   setDebug("");
 
 
@@ -502,15 +501,14 @@ async function handleImage(
     let width =
       img.width;
 
+
     let height =
       img.height;
 
 
 
     /*
-      Resize large phone photos.
-      Keep barcode detail but avoid
-      huge images.
+      Resize large phone photos
     */
 
     const maxWidth = 1600;
@@ -521,8 +519,10 @@ async function handleImage(
       const scale =
         maxWidth / width;
 
+
       width =
         Math.floor(width * scale);
+
 
       height =
         Math.floor(height * scale);
@@ -532,31 +532,31 @@ async function handleImage(
 
 
 
-    const canvas =
+    const fullCanvas =
       document.createElement("canvas");
 
 
-    canvas.width =
+    fullCanvas.width =
       width;
 
 
-    canvas.height =
+    fullCanvas.height =
       height;
 
 
 
-    const ctx =
-      canvas.getContext("2d");
+    const fullCtx =
+      fullCanvas.getContext("2d");
 
 
 
-    if(!ctx){
+    if(!fullCtx){
       return;
     }
 
 
 
-    ctx.drawImage(
+    fullCtx.drawImage(
       img,
       0,
       0,
@@ -566,48 +566,71 @@ async function handleImage(
 
 
 
-    const image =
-      ctx.getImageData(
-        0,
-        0,
-        width,
-        height
+
+    /*
+      South African licence PDF417
+      is on the top half of the back.
+    */
+
+
+    const cropCanvas =
+      document.createElement("canvas");
+
+
+    cropCanvas.width =
+      width;
+
+
+    cropCanvas.height =
+      Math.floor(
+        height * 0.55
       );
 
 
 
-    let results: Awaited<
-      ReturnType<typeof readBarcodesFromImageData>
-    > = [];
+    const cropCtx =
+      cropCanvas.getContext("2d");
 
 
 
-    /*
-      Try multiple times.
-    */
-
-    for(
-      let attempt = 0;
-      attempt < 3;
-      attempt++
-    ){
-
-
-      results =
-        await scanImage(
-          image,
-          setDebug
-        );
-
-
-      if(results.length){
-        break;
-      }
-
-
-      await sleep(300);
-
+    if(!cropCtx){
+      return;
     }
+
+
+
+    cropCtx.drawImage(
+      fullCanvas,
+      0,
+      0,
+      width,
+      Math.floor(height * 0.55),
+      0,
+      0,
+      width,
+      Math.floor(height * 0.55)
+    );
+
+
+
+
+    const image =
+      cropCtx.getImageData(
+        0,
+        0,
+        cropCanvas.width,
+        cropCanvas.height
+      );
+
+
+
+
+    const results =
+      await scanImage(
+        image,
+        setDebug
+      );
+
 
 
 
@@ -643,6 +666,7 @@ async function handleImage(
 
 
 
+
       const success =
         await tryDecode(
           bytes,
@@ -675,7 +699,6 @@ async function handleImage(
     URL.createObjectURL(file);
 
 }
-
 
 
 
