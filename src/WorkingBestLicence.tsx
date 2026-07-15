@@ -15,10 +15,13 @@ import {
 
 
 function sleep(ms:number){
+
   return new Promise(
     resolve => setTimeout(resolve, ms)
   );
+
 }
+
 
 
 
@@ -26,24 +29,36 @@ function processFrame(
   source:HTMLVideoElement
 ):ImageData {
 
+
   const canvas =
-    document.createElement("canvas");
+    document.createElement(
+      "canvas"
+    );
 
 
   canvas.width =
     source.videoWidth;
 
+
   canvas.height =
     source.videoHeight;
 
 
+
   const ctx =
-    canvas.getContext("2d");
+    canvas.getContext(
+      "2d"
+    );
 
 
   if(!ctx){
-    throw new Error("Canvas error");
+
+    throw new Error(
+      "Canvas error"
+    );
+
   }
+
 
 
   ctx.drawImage(
@@ -55,6 +70,7 @@ function processFrame(
   );
 
 
+
   return ctx.getImageData(
     0,
     0,
@@ -63,6 +79,10 @@ function processFrame(
   );
 
 }
+
+
+
+
 
 
 
@@ -81,15 +101,21 @@ async function scanImage(
     );
 
 
+
   setDebug(
     `ZXing detected: ${results.length}\n` +
     `Bytes: ${results[0]?.bytes?.length ?? 0}`
   );
 
 
+
   return results;
 
 }
+
+
+
+
 
 
 
@@ -104,14 +130,19 @@ async function tryDecode(
 
   try{
 
+
     const decoded =
-      decodeSALicense(bytes);
+      decodeSALicense(
+        bytes
+      );
+
 
 
     setDebug(
       (window as any).__licenseDebug ||
       "No parser debug available"
     );
+
 
 
     setData(
@@ -123,9 +154,11 @@ async function tryDecode(
     );
 
 
+
     setStatus(
       "Licence decoded successfully"
     );
+
 
 
     return true;
@@ -134,10 +167,12 @@ async function tryDecode(
   }
   catch(e){
 
+
     const message =
       e instanceof Error
       ? e.message
       : String(e);
+
 
 
     setDebug(
@@ -146,7 +181,7 @@ async function tryDecode(
       "\n\n" +
       (
         (window as any).__licenseDebug ||
-        ""
+        "No parser debug available"
       )
     );
 
@@ -162,6 +197,9 @@ async function tryDecode(
 
 
 
+
+
+
 function App(){
 
 
@@ -169,16 +207,14 @@ function App(){
     useRef<HTMLVideoElement>(null);
 
 
+
   const running =
-    useRef(false);
+    useRef(true);
+
 
 
   const busy =
     useRef(false);
-
-
-  const streamRef =
-    useRef<MediaStream|null>(null);
 
 
 
@@ -188,8 +224,9 @@ function App(){
     setStatus
   ] =
   useState(
-    "Choose scan method"
+    "Starting camera..."
   );
+
 
 
   const [
@@ -199,11 +236,13 @@ function App(){
   useState("");
 
 
+
   const [
     debug,
     setDebug
   ] =
   useState("");
+
 
 
   const [
@@ -215,10 +254,17 @@ function App(){
 
 
 
+
+
+
+
+
   async function scanLoop(){
 
 
-    while(running.current){
+    while(
+      running.current
+    ){
 
 
       try{
@@ -226,7 +272,7 @@ function App(){
 
         if(
           !videoRef.current ||
-          videoRef.current.videoWidth === 0
+          videoRef.current.videoWidth===0
         ){
 
           await sleep(200);
@@ -244,13 +290,16 @@ function App(){
         }
 
 
-        busy.current = true;
+
+        busy.current=true;
+
 
 
         const image =
           processFrame(
             videoRef.current
           );
+
 
 
         const results =
@@ -260,20 +309,19 @@ function App(){
           );
 
 
-        busy.current = false;
+
+        busy.current=false;
 
 
 
-        for(const result of results){
+        for(
+          const result of results
+        ){
 
 
           const bytes =
             result.bytes as Uint8Array;
 
-
-          if(!bytes){
-            continue;
-          }
 
 
           const success =
@@ -285,10 +333,10 @@ function App(){
             );
 
 
+
           if(success){
 
-            running.current = false;
-            stopCamera();
+            running.current=false;
             return;
 
           }
@@ -299,13 +347,16 @@ function App(){
       }
       catch(e){
 
-        busy.current = false;
+
+        busy.current=false;
+
 
         setDebug(
           String(e)
         );
 
       }
+
 
 
       await sleep(100);
@@ -319,20 +370,29 @@ function App(){
 
 
 
-  async function startCamera(){
+
+
+
+useEffect(()=>{
+
+
+  let stream:
+    MediaStream|null=null;
+
+
+
+  async function start(){
 
 
     try{
 
 
-      setError("");
-
-
-      const stream =
+      stream =
         await navigator.mediaDevices
         .getUserMedia({
 
           video:{
+
             facingMode:{
               ideal:"environment"
             },
@@ -353,11 +413,6 @@ function App(){
 
 
 
-      streamRef.current =
-        stream;
-
-
-
       if(videoRef.current){
 
         videoRef.current.srcObject =
@@ -370,12 +425,10 @@ function App(){
 
 
 
-      running.current = true;
-
-
       setStatus(
         "Camera active - align barcode"
       );
+
 
 
       scanLoop();
@@ -394,28 +447,32 @@ function App(){
 
 
 
+  start();
 
 
-  function stopCamera(){
 
 
-    running.current = false;
+  return()=>{
 
 
-    if(streamRef.current){
+    running.current=false;
 
-      streamRef.current
+
+
+    if(stream){
+
+      stream
       .getTracks()
       .forEach(
         t=>t.stop()
       );
 
-
-      streamRef.current = null;
-
     }
 
-  }
+  };
+
+
+},[]);
 
 
 
@@ -423,162 +480,173 @@ function App(){
 
 
 
-  async function handleImage(
-    e:React.ChangeEvent<HTMLInputElement>
-  ){
 
 
-    const file =
-      e.target.files?.[0];
+async function handleImage(
+  e:React.ChangeEvent<HTMLInputElement>
+){
 
 
-    if(!file){
-      return;
-    }
+  const file =
+    e.target.files?.[0];
 
 
-
-    setStatus(
-      "Processing image..."
-    );
-
-
-    setDebug("");
+  if(!file)
+    return;
 
 
 
-    const img =
-      new Image();
+  setStatus(
+    "Processing image..."
+  );
+
+
+  setDebug("");
 
 
 
-    img.onload =
-    async()=>{
-
-
-      const canvas =
-        document.createElement("canvas");
-
-
-      canvas.width =
-        img.width;
-
-
-      canvas.height =
-        img.height;
+  const img =
+    new Image();
 
 
 
-      const ctx =
-        canvas.getContext("2d");
+  img.onload =
+  async()=>{
 
 
-      if(!ctx){
-        return;
-      }
+    const canvas =
+      document.createElement(
+        "canvas"
+      );
+
+
+    canvas.width =
+      img.width;
+
+
+    canvas.height =
+      img.height;
 
 
 
-      ctx.drawImage(
-        img,
-        0,
-        0
+    const ctx =
+      canvas.getContext(
+        "2d"
       );
 
 
 
-      const image =
-        ctx.getImageData(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
+    if(!ctx)
+      return;
 
 
 
-      const results =
-        await scanImage(
-          image,
+    ctx.drawImage(
+      img,
+      0,
+      0
+    );
+
+
+
+    const image =
+      ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+
+
+    const results =
+      await scanImage(
+        image,
+        setDebug
+      );
+
+
+
+
+    /*
+      No barcode found
+    */
+
+    if(results.length === 0){
+
+      setStatus(
+        "No PDF417 barcode detected"
+      );
+
+      setDebug(
+        "ZXing found no barcode in image"
+      );
+
+      return;
+
+    }
+
+
+
+
+
+    /*
+      Barcode found
+    */
+
+    for(
+      const result of results
+    ){
+
+
+      const bytes =
+        result.bytes as Uint8Array;
+
+
+
+      if(!bytes){
+
+        continue;
+
+      }
+
+
+
+      const success =
+        await tryDecode(
+          bytes,
+          setData,
+          setStatus,
           setDebug
         );
 
 
 
-      if(results.length === 0){
-
-        setStatus(
-          "No PDF417 barcode detected"
-        );
+      if(success){
 
         return;
 
       }
 
-
-
-
-      for(const result of results){
-
-
-        const bytes =
-          result.bytes as Uint8Array;
-
-
-        if(!bytes){
-          continue;
-        }
-
-
-
-        const success =
-          await tryDecode(
-            bytes,
-            setData,
-            setStatus,
-            setDebug
-          );
-
-
-        if(success){
-          return;
-        }
-
-      }
-
-
-
-      setStatus(
-        "PDF417 found but decoding failed"
-      );
-
-
-    };
-
-
-
-    img.src =
-      URL.createObjectURL(file);
-
-  }
+    }
 
 
 
 
+    setStatus(
+      "PDF417 detected but licence decoding failed"
+    );
+
+
+  };
 
 
 
-  useEffect(()=>{
+  img.src =
+    URL.createObjectURL(file);
 
 
-    return ()=>{
-
-      stopCamera();
-
-    };
-
-
-  },[]);
+}
 
 
 
@@ -587,7 +655,8 @@ function App(){
 
 
 
-  return (
+
+return (
 
 <div
 style={{
@@ -600,55 +669,6 @@ fontFamily:"Arial"
 <h2>
 South African Licence Scanner
 </h2>
-
-
-
-<button
-onClick={startCamera}
->
-Start Camera Scanner
-</button>
-
-
-<button
-onClick={stopCamera}
-style={{
-marginLeft:10
-}}
->
-Stop Camera
-</button>
-
-
-
-<br/>
-<br/>
-
-
-
-<label>
-
-Upload Licence Image:
-
-<input
-
-type="file"
-
-accept="image/*"
-
-capture="environment"
-
-onChange={handleImage}
-
-/>
-
-</label>
-
-
-
-
-<br/>
-<br/>
 
 
 
@@ -673,6 +693,20 @@ border:"3px solid black"
 <h3>
 {status}
 </h3>
+
+
+
+<input
+
+type="file"
+
+accept="image/*"
+
+capture="environment"
+
+onChange={handleImage}
+
+/>
 
 
 
@@ -720,7 +754,8 @@ whiteSpace:"pre-wrap"
 
 </div>
 
-  );
+);
+
 
 }
 
