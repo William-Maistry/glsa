@@ -140,12 +140,42 @@ export function decodeSALicense(
 
   }
 
- (window as any).__payloadHex =
-  hex;
-
-
 const payload =
   decrypted.slice(10);
+
+
+
+let payloadHex = "";
+
+for (
+  let i = 0;
+  i < payload.length;
+  i++
+) {
+
+  if (i % 16 === 0) {
+
+    payloadHex +=
+      "\n" +
+      i
+        .toString(16)
+        .padStart(4,"0") +
+      ": ";
+
+  }
+
+  payloadHex +=
+    payload[i]
+      .toString(16)
+      .padStart(2,"0") +
+    " ";
+
+}
+
+
+(window as any).__payloadHex =
+  payloadHex;
+
 
 
 return parseLicenseData(
