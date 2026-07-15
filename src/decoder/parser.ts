@@ -17,38 +17,6 @@ function bytesToString(
 
 
 
-function decodeDate(
-  nibbles: string
-): string {
-
-  if (
-    !nibbles ||
-    nibbles.includes("a")
-  ) {
-    return "";
-  }
-
-
-  if (nibbles.length !== 8) {
-    return "";
-  }
-
-
-  return (
-    nibbles.substring(0,4)
-    + "-"
-    +
-    nibbles.substring(4,6)
-    + "-"
-    +
-    nibbles.substring(6,8)
-  );
-
-}
-
-
-
-
 
 function bytesToNibbles(
   bytes: Uint8Array
@@ -56,20 +24,17 @@ function bytesToNibbles(
 
   let result = "";
 
-
   for (const b of bytes) {
 
     result +=
       ((b >> 4) & 0xf)
       .toString(16);
 
-
     result +=
       (b & 0xf)
       .toString(16);
 
   }
-
 
   return result;
 
@@ -79,10 +44,41 @@ function bytesToNibbles(
 
 
 
+function decodeDate(
+  value:string
+):string {
+
+
+  if(
+    !value ||
+    value.includes("a") ||
+    value.length !== 8
+  ){
+
+    return "";
+
+  }
+
+
+  return (
+    value.substring(0,4)
+    + "-"
+    +
+    value.substring(4,6)
+    + "-"
+    +
+    value.substring(6,8)
+  );
+
+}
+
+
+
+
 
 function splitStrings(
-  bytes: Uint8Array
-): string[] {
+  bytes:Uint8Array
+):string[] {
 
 
   const text =
@@ -96,28 +92,29 @@ function splitStrings(
 
 
 
-  for (
-    let i = 0;
-    i < text.length;
+  for(
+    let i=0;
+    i<text.length;
     i++
-  ) {
+  ){
+
 
     const code =
       text.charCodeAt(i);
 
 
 
-    if (
+    if(
       code === 224 ||
       code === 225
-    ) {
+    ){
 
       values.push(current);
 
       current = "";
 
     }
-    else {
+    else{
 
       current += text[i];
 
@@ -134,7 +131,6 @@ function splitStrings(
   }
 
 
-
   return values;
 
 }
@@ -146,11 +142,16 @@ function splitStrings(
 
 
 
+
 export function parseLicenseData(
-  bytes: Uint8Array
-): SALicenseData {
+  bytes:Uint8Array
+):SALicenseData {
 
 
+
+  /*
+    HEADER
+  */
 
   const stringLength =
     bytes[5];
@@ -172,13 +173,11 @@ export function parseLicenseData(
 
 
 
-
   const stringBytes =
     bytes.slice(
       stringStart,
       stringEnd
     );
-
 
 
 
@@ -189,13 +188,11 @@ export function parseLicenseData(
 
 
 
-
-
   (window as any).__licenseDebug =
     fields
     .map(
-      (field,index)=>
-        `${index} => ${field}`
+      (x,i)=>
+        `${i} => ${x}`
     )
     .join("\n");
 
@@ -205,15 +202,21 @@ export function parseLicenseData(
 
 
 
+  /*
+      STRING SECTION
+  */
+
+
+
   const result:SALicenseData = {
 
 
-    /*
-      Confirmed mappings
-    */
+    vehicleLicenses:
+      [],
+
 
     idNumber:
-      (fields[8] ?? "").substring(0,13),
+      fields[14] ?? "",
 
 
     idNumberType:
@@ -221,15 +224,15 @@ export function parseLicenseData(
 
 
     idCountryOfIssue:
-      fields[2] ?? "",
+      fields[7] ?? "",
 
 
     surname:
-      fields[0] ?? "",
+      fields[4] ?? "",
 
 
     initials:
-      fields[1] ?? "",
+      fields[5] ?? "",
 
 
     gender:
@@ -245,7 +248,7 @@ export function parseLicenseData(
 
 
     licenseCountryOfIssue:
-      fields[3] ?? "",
+      fields[8] ?? "",
 
 
     licenseIssueNumber:
@@ -253,7 +256,7 @@ export function parseLicenseData(
 
 
     licenseNumber:
-      fields[7] ?? "",
+      fields[13] ?? "",
 
 
     licenseValidityStart:
@@ -269,10 +272,6 @@ export function parseLicenseData(
 
 
     professionalDrivingPermitCodes:
-      [],
-
-
-    vehicleLicenses:
       []
 
   };
@@ -283,23 +282,83 @@ export function parseLicenseData(
 
 
 
+
+  /*
+      VEHICLE DATA
+  */
+
+
+  const vehicleCodes =
+    (fields[0] ?? "")
+    .split(",");
+
+
+
+  const vehicleRestrictions =
+    (fields[9] ?? "")
+    .split(",");
+
+
+
+
+
+  for(
+    let i=0;
+    i<vehicleCodes.length;
+    i++
+  ){
+
+
+    if(vehicleCodes[i]){
+
+
+      const vehicle:VehicleLicense = {
+
+        code:
+          vehicleCodes[i],
+
+
+        restriction:
+          vehicleRestrictions[i] ?? "",
+
+
+        firstIssueDate:
+          ""
+
+      };
+
+
+      result.vehicleLicenses.push(
+        vehicle
+      );
+
+    }
+
+  }
+
+
+
+
+
+
+
+
+  /*
+      BINARY SECTION
+  */
+
+
+
   const binaryStart =
     stringEnd;
-
-
-
-  const binaryEnd =
-    binaryStart +
-    binaryLength;
 
 
 
   const binary =
     bytes.slice(
       binaryStart,
-      binaryEnd
+      binaryStart + binaryLength
     );
-
 
 
 
@@ -310,72 +369,26 @@ export function parseLicenseData(
 
 
 
-  /*
-    Debug binary layout
-  */
-
-  (window as any).__licenseDebug +=
-    "\n\nNIBBLES:\n" +
-    nibbles;
-
-
-
-
-
-  /*
-    Existing binary parsing kept temporarily.
-    We will correct offsets after
-    confirming real card values.
-  */
-
-
   let pos = 0;
 
 
 
 
-  result.idNumberType =
-    nibbles.substring(
-      pos,
-      pos + 2
-    );
-
-
-  pos += 2;
-
-
-
-
-
-
-
-  const issueDates:string[] = [];
-
-
-
-  for(
-    let i = 0;
-    i < 4;
-    i++
+  function read(
+    length:number
   ){
 
-    const part =
+    const value =
       nibbles.substring(
         pos,
-        pos + 8
+        pos + length
       );
 
 
-    if(part.length === 8){
-
-      issueDates.push(
-        decodeDate(part)
-      );
-
-    }
+    pos += length;
 
 
-    pos += 8;
+    return value;
 
   }
 
@@ -384,32 +397,75 @@ export function parseLicenseData(
 
 
 
+  /*
+      ID TYPE
+  */
 
-  result.driverRestrictions =
-    nibbles.substring(
-      pos,
-      pos + 2
+
+  result.idNumberType =
+    read(2);
+
+
+
+
+
+
+
+  /*
+      4 licence issue dates
+  */
+
+
+  const issueDates:string[] = [];
+
+
+  for(
+    let i=0;
+    i<4;
+    i++
+  ){
+
+
+    const date =
+      read(8);
+
+
+    issueDates.push(
+      decodeDate(date)
     );
 
-
-  pos += 2;
-
+  }
 
 
 
 
+
+  /*
+      Restrictions
+  */
+
+
+  result.driverRestrictions =
+    read(2);
+
+
+
+
+
+
+
+  /*
+      PrDP expiry
+  */
 
 
   const prdp =
-    nibbles.substring(
-      pos,
-      pos + 8
-    );
+    read(8);
 
 
 
   if(
-    prdp.length === 8 &&
+    prdp &&
     !prdp.includes("a")
   ){
 
@@ -420,85 +476,67 @@ export function parseLicenseData(
 
 
 
-  pos += 8;
 
 
 
 
-
+  /*
+      Issue number
+  */
 
 
   result.licenseIssueNumber =
-    nibbles.substring(
-      pos,
-      pos + 2
-    );
-
-
-  pos += 2;
+    read(2);
 
 
 
 
 
 
+
+
+  /*
+      Birth date
+  */
 
 
   result.birthDate =
     decodeDate(
-      nibbles.substring(
-        pos,
-        pos + 8
-      )
+      read(8)
     );
 
 
-  pos += 8;
 
 
 
 
 
+
+  /*
+      Valid from
+  */
 
 
   result.licenseValidityStart =
     decodeDate(
-      nibbles.substring(
-        pos,
-        pos + 8
-      )
+      read(8)
     );
 
 
-  pos += 8;
 
 
 
 
 
+
+  /*
+      Valid to
+  */
 
 
   result.licenseValidityExpiry =
     decodeDate(
-      nibbles.substring(
-        pos,
-        pos + 8
-      )
-    );
-
-
-  pos += 8;
-
-
-
-
-
-
-
-  result.gender =
-    nibbles.substring(
-      pos,
-      pos + 2
+      read(8)
     );
 
 
@@ -508,35 +546,53 @@ export function parseLicenseData(
 
 
   /*
-    Vehicle decoding disabled until
-    binary layout is confirmed.
+      Gender
   */
 
 
-  const vehicle:VehicleLicense = {
-
-    code:
-      "",
-
-
-    restriction:
-      "",
-
-
-    firstIssueDate:
-      ""
-
-  };
+  result.gender =
+    read(2);
 
 
 
-  if(vehicle.code){
 
-    result.vehicleLicenses.push(
-      vehicle
-    );
+
+
+
+
+  /*
+      Add first issue date
+      to vehicles
+  */
+
+
+  if(
+    result.vehicleLicenses.length
+  ){
+
+    result.vehicleLicenses[0]
+      .firstIssueDate =
+      issueDates[0] ?? "";
 
   }
+
+
+
+
+
+
+
+  /*
+      Extra debug
+  */
+
+
+  (window as any).__licenseDebug +=
+    "\n\nNIBBLES:\n" +
+    nibbles +
+    "\n\nPOSITION:\n" +
+    pos;
+
 
 
 
