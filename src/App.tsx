@@ -115,9 +115,17 @@ async function tryDecode(
 
 
     setDebug(
-      (window as any).__licenseDebug ||
-      "No parser debug available"
-    );
+  "BLOCK DEBUG\n\n" +
+  (
+    (window as any).__blockDebug ||
+    "No block debug available"
+  ) +
+  "\n\nPARSER DEBUG\n\n" +
+  (
+    (window as any).__licenseDebug ||
+    "No parser debug available"
+  )
+);
 
 
 

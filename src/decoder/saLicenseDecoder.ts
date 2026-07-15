@@ -2,103 +2,50 @@ import { rsaDecryptBlock } from "./rsa";
 import { parseLicenseData } from "./parser";
 import type { SALicenseData } from "./types";
 
-
-
 export function decodeSALicense(
   bytes: Uint8Array
 ): SALicenseData {
 
-
-  if(bytes.length !== 720){
-
+  if (bytes.length !== 720) {
     throw new Error(
       `Invalid barcode length. Expected 720 bytes, got ${bytes.length}`
     );
-
   }
 
-
-
-  /*
-      PDF417 structure:
-
-      Bytes 0-3:
-      Version header
-
-      Bytes 4-5:
-      Reserved 00 00
-
-      Bytes 6-719:
-      RSA encrypted blocks
-
-  */
-
-
-
   const versionBytes =
-    bytes.slice(0,4);
-
-
+    bytes.slice(0, 4);
 
   let version = 2;
 
-
-
-  /*
-      Current South African licences:
-
-      01 9b 09 45 = Version 2
-
-      Older:
-      01 e1 02 45 = Version 1
-
-  */
-
-
-
-  if(
-    versionBytes[1] === 0xe1
-  ){
-
+  if (versionBytes[1] === 0xe1) {
     version = 1;
-
   }
-
-
 
   const encrypted =
     bytes.slice(6);
 
-
-
-
   const blocks = [
 
-    encrypted.slice(0,128),
+    encrypted.slice(0, 128),
 
-    encrypted.slice(128,256),
+    encrypted.slice(128, 256),
 
-    encrypted.slice(256,384),
+    encrypted.slice(256, 384),
 
-    encrypted.slice(384,512),
+    encrypted.slice(384, 512),
 
-    encrypted.slice(512,640),
+    encrypted.slice(512, 640),
 
-    encrypted.slice(640,714)
+    encrypted.slice(640, 714)
 
   ];
-
-
 
   let decrypted =
     new Uint8Array();
 
+  let debug = "";
 
-
-  for(
-    const block of blocks
-  ){
-
+  blocks.forEach((block, index) => {
 
     const result =
       rsaDecryptBlock(
@@ -106,7 +53,41 @@ export function decodeSALicense(
         version
       );
 
+    debug +=
+      `\n========== BLOCK ${index} ==========\n`;
 
+    debug +=
+      `Length: ${result.length}\n\n`;
+
+    for (
+      let i = 0;
+      i < result.length;
+      i++
+    ) {
+
+      if (i % 16 === 0) {
+
+        debug +=
+          i
+            .toString(16)
+            .padStart(4, "0") +
+          ": ";
+
+      }
+
+      debug +=
+        result[i]
+          .toString(16)
+          .padStart(2, "0") +
+        " ";
+
+      if (i % 16 === 15) {
+        debug += "\n";
+      }
+
+    }
+
+    debug += "\n\n";
 
     const combined =
       new Uint8Array(
@@ -114,75 +95,56 @@ export function decodeSALicense(
         result.length
       );
 
-
-
     combined.set(
       decrypted,
       0
     );
-
 
     combined.set(
       result,
       decrypted.length
     );
 
-
     decrypted =
       combined;
 
-  }
+  });
 
+  (window as any).__blockDebug =
+    debug;
 
+  let hex = "";
 
+  for (
+    let i = 0;
+    i < decrypted.length;
+    i++
+  ) {
 
-  /*
-      First 10 bytes are the
-      decrypted internal header.
-  */
+    if (i % 16 === 0) {
 
+      hex +=
+        "\n" +
+        i
+          .toString(16)
+          .padStart(4, "0") +
+        ": ";
 
-const payload =
-  decrypted;
-
-
-
-let hex = "";
-
-for (
-  let i = 0;
-  i < payload.length;
-  i++
-){
-
-  if(i % 16 === 0){
+    }
 
     hex +=
-      "\n" +
-      i
+      decrypted[i]
         .toString(16)
-        .padStart(4,"0") +
-      ": ";
+        .padStart(2, "0") +
+      " ";
 
   }
 
-  hex +=
-    payload[i]
-      .toString(16)
-      .padStart(2,"0") +
-    " ";
+  (window as any).__payloadHex =
+    hex;
 
-}
-
-
-
-(window as any).__payloadHex =
-  hex;
-
-
-
-return parseLicenseData(
-  payload
-);
+  return parseLicenseData(
+    decrypted
+  );
 
 }
