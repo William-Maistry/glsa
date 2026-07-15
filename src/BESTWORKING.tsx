@@ -69,6 +69,7 @@ function processFrame(
 
 
 
+
 async function scanImage(
   image:ImageData,
   setDebug:(x:string)=>void
@@ -79,10 +80,7 @@ async function scanImage(
       image,
       {
         tryHarder:true,
-        maxSymbols:1,
-        formats:[
-          "PDF417"
-        ]
+        maxSymbols:1
       }
     );
 
@@ -96,6 +94,8 @@ async function scanImage(
   return results;
 
 }
+
+
 
 
 
@@ -467,166 +467,6 @@ function App(){
 
 
 
-  async function scanMultipleCrops(
-  img:HTMLImageElement,
-  setDebug:(x:string)=>void
-){
-
-  const canvas =
-    document.createElement("canvas");
-
-
-  const maxWidth = 1600;
-
-
-  let width =
-    img.width;
-
-  let height =
-    img.height;
-
-
-
-  if(width > maxWidth){
-
-    const scale =
-      maxWidth / width;
-
-    width =
-      Math.floor(width * scale);
-
-    height =
-      Math.floor(height * scale);
-
-  }
-
-
-
-  canvas.width =
-    width;
-
-  canvas.height =
-    height;
-
-
-
-  const ctx =
-    canvas.getContext("2d");
-
-
-  if(!ctx){
-    return [];
-  }
-
-
-
-  ctx.drawImage(
-    img,
-    0,
-    0,
-    width,
-    height
-  );
-
-
-
-  const crops = [
-
-    {
-      y:0,
-      h:0.55
-    },
-
-    {
-      y:0.10,
-      h:0.60
-    },
-
-    {
-      y:0.20,
-      h:0.70
-    }
-
-  ];
-
-
-
-  for(const crop of crops){
-
-
-    const cropCanvas =
-      document.createElement("canvas");
-
-
-    cropCanvas.width =
-      width;
-
-
-    cropCanvas.height =
-      Math.floor(
-        height * crop.h
-      );
-
-
-
-    const cropCtx =
-      cropCanvas.getContext("2d");
-
-
-
-    if(!cropCtx){
-      continue;
-    }
-
-
-
-    cropCtx.drawImage(
-      canvas,
-      0,
-      Math.floor(height * crop.y),
-      width,
-      Math.floor(height * crop.h),
-      0,
-      0,
-      width,
-      Math.floor(height * crop.h)
-    );
-
-
-
-    const image =
-      cropCtx.getImageData(
-        0,
-        0,
-        cropCanvas.width,
-        cropCanvas.height
-      );
-
-
-
-    const results =
-      await scanImage(
-        image,
-        setDebug
-      );
-
-
-
-    if(results.length > 0){
-
-      return results;
-
-    }
-
-  }
-
-
-
-  return [];
-
-}
-
-
 async function handleImage(
   e:React.ChangeEvent<HTMLInputElement>
 ){
@@ -774,9 +614,20 @@ async function handleImage(
 
 
 
+    const image =
+      cropCtx.getImageData(
+        0,
+        0,
+        cropCanvas.width,
+        cropCanvas.height
+      );
+
+
+
+
     const results =
-      await scanMultipleCrops(
-        img,
+      await scanImage(
+        image,
         setDebug
       );
 
