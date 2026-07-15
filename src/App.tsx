@@ -14,6 +14,8 @@ import {
 
 
 
+
+
 function sleep(ms:number){
   return new Promise(
     resolve => setTimeout(resolve, ms)
@@ -467,155 +469,212 @@ function App(){
 
 
 
+async function handleImage(
+  e:React.ChangeEvent<HTMLInputElement>
+){
 
-  async function handleImage(
-    e:React.ChangeEvent<HTMLInputElement>
-  ){
-
-
-    const file =
-      e.target.files?.[0];
+  const file =
+    e.target.files?.[0];
 
 
+  if(!file){
+    return;
+  }
 
-    if(!file){
+
+  setStatus(
+    "Processing image..."
+  );
+
+  setDebug("");
+
+
+
+  const img =
+    new Image();
+
+
+
+  img.onload =
+  async()=>{
+
+
+    let width =
+      img.width;
+
+    let height =
+      img.height;
+
+
+
+    /*
+      Resize large phone photos.
+      Keep barcode detail but avoid
+      huge images.
+    */
+
+    const maxWidth = 1600;
+
+
+    if(width > maxWidth){
+
+      const scale =
+        maxWidth / width;
+
+      width =
+        Math.floor(width * scale);
+
+      height =
+        Math.floor(height * scale);
+
+    }
+
+
+
+
+    const canvas =
+      document.createElement("canvas");
+
+
+    canvas.width =
+      width;
+
+
+    canvas.height =
+      height;
+
+
+
+    const ctx =
+      canvas.getContext("2d");
+
+
+
+    if(!ctx){
       return;
     }
 
 
 
-    setStatus(
-      "Processing image..."
+    ctx.drawImage(
+      img,
+      0,
+      0,
+      width,
+      height
     );
 
 
-    setDebug("");
 
-
-
-    const img =
-      new Image();
-
-
-
-    img.onload =
-    async()=>{
-
-
-      const canvas =
-        document.createElement("canvas");
-
-
-
-      canvas.width =
-        img.width;
-
-
-      canvas.height =
-        img.height;
-
-
-
-      const ctx =
-        canvas.getContext("2d");
-
-
-
-      if(!ctx){
-        return;
-      }
-
-
-
-      ctx.drawImage(
-        img,
+    const image =
+      ctx.getImageData(
         0,
-        0
+        0,
+        width,
+        height
       );
 
 
 
-      const image =
-        ctx.getImageData(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
+    let results: Awaited<
+      ReturnType<typeof readBarcodesFromImageData>
+    > = [];
 
 
 
-      const results =
+    /*
+      Try multiple times.
+    */
+
+    for(
+      let attempt = 0;
+      attempt < 3;
+      attempt++
+    ){
+
+
+      results =
         await scanImage(
           image,
           setDebug
         );
 
 
-
-      if(results.length === 0){
-
-
-        setStatus(
-          "No PDF417 barcode detected"
-        );
-
-
-        return;
-
+      if(results.length){
+        break;
       }
 
 
+      await sleep(300);
+
+    }
 
 
 
-      for(const result of results){
 
-
-        const bytes =
-          result.bytes as Uint8Array;
-
-
-
-        if(!bytes){
-          continue;
-        }
-
-
-
-        const success =
-          await tryDecode(
-            bytes,
-            setData,
-            setStatus,
-            setDebug
-          );
-
-
-
-        if(success){
-          return;
-        }
-
-      }
-
+    if(results.length === 0){
 
 
       setStatus(
-        "PDF417 detected but decoding failed"
+        "No PDF417 barcode detected"
       );
 
 
-    };
+      return;
+
+    }
 
 
 
-    img.src =
-      URL.createObjectURL(file);
 
-  }
+    for(
+      const result of results
+    ){
 
 
+      const bytes =
+        result.bytes as Uint8Array;
+
+
+
+      if(!bytes){
+        continue;
+      }
+
+
+
+      const success =
+        await tryDecode(
+          bytes,
+          setData,
+          setStatus,
+          setDebug
+        );
+
+
+
+      if(success){
+        return;
+      }
+
+
+    }
+
+
+
+    setStatus(
+      "PDF417 detected but decoding failed"
+    );
+
+
+  };
+
+
+
+  img.src =
+    URL.createObjectURL(file);
+
+}
 
 
 
