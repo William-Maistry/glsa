@@ -66,6 +66,8 @@ function processFrame(
 
 
 
+
+
 async function scanImage(
   image:ImageData,
   setDebug:(x:string)=>void
@@ -94,6 +96,9 @@ async function scanImage(
 
 
 
+
+
+
 async function tryDecode(
   bytes:Uint8Array,
   setData:(x:string)=>void,
@@ -104,14 +109,17 @@ async function tryDecode(
 
   try{
 
+
     const decoded =
       decodeSALicense(bytes);
+
 
 
     setDebug(
       (window as any).__licenseDebug ||
       "No parser debug available"
     );
+
 
 
     setData(
@@ -123,9 +131,11 @@ async function tryDecode(
     );
 
 
+
     setStatus(
       "Licence decoded successfully"
     );
+
 
 
     return true;
@@ -134,10 +144,12 @@ async function tryDecode(
   }
   catch(e){
 
+
     const message =
       e instanceof Error
       ? e.message
       : String(e);
+
 
 
     setDebug(
@@ -156,6 +168,9 @@ async function tryDecode(
   }
 
 }
+
+
+
 
 
 
@@ -183,13 +198,15 @@ function App(){
 
 
 
+
   const [
     status,
     setStatus
   ] =
   useState(
-    "Choose scan method"
+    "Choose a scan method"
   );
+
 
 
   const [
@@ -199,6 +216,7 @@ function App(){
   useState("");
 
 
+
   const [
     debug,
     setDebug
@@ -206,11 +224,15 @@ function App(){
   useState("");
 
 
+
   const [
     error,
     setError
   ] =
   useState("");
+
+
+
 
 
 
@@ -244,7 +266,9 @@ function App(){
         }
 
 
+
         busy.current = true;
+
 
 
         const image =
@@ -253,11 +277,13 @@ function App(){
           );
 
 
+
         const results =
           await scanImage(
             image,
             setDebug
           );
+
 
 
         busy.current = false;
@@ -271,9 +297,11 @@ function App(){
             result.bytes as Uint8Array;
 
 
+
           if(!bytes){
             continue;
           }
+
 
 
           const success =
@@ -285,10 +313,11 @@ function App(){
             );
 
 
+
           if(success){
 
-            running.current = false;
             stopCamera();
+
             return;
 
           }
@@ -299,13 +328,16 @@ function App(){
       }
       catch(e){
 
+
         busy.current = false;
+
 
         setDebug(
           String(e)
         );
 
       }
+
 
 
       await sleep(100);
@@ -319,6 +351,9 @@ function App(){
 
 
 
+
+
+
   async function startCamera(){
 
 
@@ -326,6 +361,7 @@ function App(){
 
 
       setError("");
+
 
 
       const stream =
@@ -373,9 +409,11 @@ function App(){
       running.current = true;
 
 
+
       setStatus(
-        "Camera active - align barcode"
+        "Live camera scanning..."
       );
+
 
 
       scanLoop();
@@ -396,13 +434,18 @@ function App(){
 
 
 
+
+
+
   function stopCamera(){
 
 
     running.current = false;
 
 
+
     if(streamRef.current){
+
 
       streamRef.current
       .getTracks()
@@ -423,6 +466,8 @@ function App(){
 
 
 
+
+
   async function handleImage(
     e:React.ChangeEvent<HTMLInputElement>
   ){
@@ -430,6 +475,7 @@ function App(){
 
     const file =
       e.target.files?.[0];
+
 
 
     if(!file){
@@ -460,6 +506,7 @@ function App(){
         document.createElement("canvas");
 
 
+
       canvas.width =
         img.width;
 
@@ -471,6 +518,7 @@ function App(){
 
       const ctx =
         canvas.getContext("2d");
+
 
 
       if(!ctx){
@@ -507,13 +555,16 @@ function App(){
 
       if(results.length === 0){
 
+
         setStatus(
           "No PDF417 barcode detected"
         );
 
+
         return;
 
       }
+
 
 
 
@@ -523,6 +574,7 @@ function App(){
 
         const bytes =
           result.bytes as Uint8Array;
+
 
 
         if(!bytes){
@@ -540,6 +592,7 @@ function App(){
           );
 
 
+
         if(success){
           return;
         }
@@ -549,7 +602,7 @@ function App(){
 
 
       setStatus(
-        "PDF417 found but decoding failed"
+        "PDF417 detected but decoding failed"
       );
 
 
@@ -561,6 +614,7 @@ function App(){
       URL.createObjectURL(file);
 
   }
+
 
 
 
@@ -587,6 +641,7 @@ function App(){
 
 
 
+
   return (
 
 <div
@@ -603,10 +658,16 @@ South African Licence Scanner
 
 
 
+
+<h3>
+1. Live Camera Scanner
+</h3>
+
+
 <button
 onClick={startCamera}
 >
-Start Camera Scanner
+Start Live Scanner
 </button>
 
 
@@ -616,31 +677,45 @@ style={{
 marginLeft:10
 }}
 >
-Stop Camera
+Stop
 </button>
 
 
 
+
 <br/>
 <br/>
 
 
 
-<label>
+<h3>
+2. Take Photo Using Phone Camera
+</h3>
 
-Upload Licence Image:
 
 <input
-
 type="file"
-
 accept="image/*"
-
+capture="environment"
 onChange={handleImage}
-
 />
 
-</label>
+
+
+
+
+<h3>
+3. Choose Existing Image / File
+</h3>
+
+
+<input
+type="file"
+accept="image/*"
+onChange={handleImage}
+/>
+
+
 
 
 
@@ -668,9 +743,13 @@ border:"3px solid black"
 
 
 
+
+
 <h3>
 {status}
 </h3>
+
+
 
 
 
@@ -680,6 +759,9 @@ error &&
 {error}
 </p>
 }
+
+
+
 
 
 
@@ -700,6 +782,9 @@ whiteSpace:"pre-wrap"
 
 
 
+
+
+
 <h3>
 Parser Debug
 </h3>
@@ -714,6 +799,9 @@ whiteSpace:"pre-wrap"
 >
 {debug}
 </pre>
+
+
+
 
 
 </div>
