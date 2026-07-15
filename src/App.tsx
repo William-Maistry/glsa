@@ -79,10 +79,7 @@ async function scanImage(
       image,
       {
         tryHarder:true,
-        maxSymbols:1,
-        formats:[
-          "PDF417"
-        ]
+        maxSymbols:1
       }
     );
 
@@ -467,7 +464,7 @@ function App(){
 
 
 
-  async function scanMultipleCrops(
+async function scanMultipleCrops(
   img:HTMLImageElement,
   setDebug:(x:string)=>void
 ){
@@ -476,15 +473,14 @@ function App(){
     document.createElement("canvas");
 
 
-  const maxWidth = 1600;
-
-
   let width =
     img.width;
 
   let height =
     img.height;
 
+
+  const maxWidth = 1600;
 
 
   if(width > maxWidth){
@@ -501,13 +497,11 @@ function App(){
   }
 
 
-
   canvas.width =
     width;
 
   canvas.height =
     height;
-
 
 
   const ctx =
@@ -517,7 +511,6 @@ function App(){
   if(!ctx){
     return [];
   }
-
 
 
   ctx.drawImage(
@@ -531,22 +524,21 @@ function App(){
 
 
   const crops = [
-
     {
+      name:"top55",
       y:0,
       h:0.55
     },
-
     {
+      name:"shift10",
       y:0.10,
       h:0.60
     },
-
     {
+      name:"shift20",
       y:0.20,
       h:0.70
     }
-
   ];
 
 
@@ -604,6 +596,12 @@ function App(){
 
 
 
+    setDebug(
+      `Trying crop: ${crop.name}`
+    );
+
+
+
     const results =
       await scanImage(
         image,
@@ -625,7 +623,6 @@ function App(){
   return [];
 
 }
-
 
 async function handleImage(
   e:React.ChangeEvent<HTMLInputElement>
@@ -840,12 +837,19 @@ async function handleImage(
     );
 
 
+    URL.revokeObjectURL(objectUrl);
+
+
   };
 
 
 
-  img.src =
+  const objectUrl =
     URL.createObjectURL(file);
+
+
+  img.src =
+    objectUrl;
 
 }
 
