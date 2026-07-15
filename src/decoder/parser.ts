@@ -128,7 +128,9 @@ function splitStrings(
 
 
   if(current.length){
+
     values.push(current);
+
   }
 
 
@@ -206,8 +208,12 @@ export function parseLicenseData(
   const result:SALicenseData = {
 
 
+    /*
+      Confirmed mappings
+    */
+
     idNumber:
-      fields[7] ?? "",
+      (fields[8] ?? "").substring(0,13),
 
 
     idNumberType:
@@ -247,7 +253,7 @@ export function parseLicenseData(
 
 
     licenseNumber:
-      fields[6] ?? "",
+      fields[7] ?? "",
 
 
     licenseValidityStart:
@@ -305,7 +311,7 @@ export function parseLicenseData(
 
 
   /*
-    Temporary binary debugging
+    Debug binary layout
   */
 
   (window as any).__licenseDebug +=
@@ -316,8 +322,14 @@ export function parseLicenseData(
 
 
 
-  let pos = 0;
+  /*
+    Existing binary parsing kept temporarily.
+    We will correct offsets after
+    confirming real card values.
+  */
 
+
+  let pos = 0;
 
 
 
@@ -381,6 +393,7 @@ export function parseLicenseData(
 
 
   pos += 2;
+
 
 
 
@@ -494,10 +507,9 @@ export function parseLicenseData(
 
 
 
-
   /*
-    Temporarily disabled because
-    current mapping is incorrect.
+    Vehicle decoding disabled until
+    binary layout is confirmed.
   */
 
 
@@ -508,11 +520,11 @@ export function parseLicenseData(
 
 
     restriction:
-      fields[5] ?? "",
+      "",
 
 
     firstIssueDate:
-      issueDates[0] ?? ""
+      ""
 
   };
 
