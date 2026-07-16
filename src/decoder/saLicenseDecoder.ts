@@ -11,11 +11,6 @@ function bytesToRawString(
 
   for (const b of bytes) {
 
-    /*
-      PDF417 licence separators:
-      e0/e1 are field delimiters
-    */
-
     if (
       b === 0xe0 ||
       b === 0xe1
@@ -87,15 +82,10 @@ export function decodeSALicense(
   const blocks = [
 
     encrypted.slice(0,128),
-
     encrypted.slice(128,256),
-
     encrypted.slice(256,384),
-
     encrypted.slice(384,512),
-
     encrypted.slice(512,640),
-
     encrypted.slice(640,714)
 
   ];
@@ -107,7 +97,7 @@ export function decodeSALicense(
 
 
 
-  let debug = "";
+  let blockDebug = "";
 
 
 
@@ -122,12 +112,11 @@ export function decodeSALicense(
         );
 
 
-
-      debug +=
+      blockDebug +=
         `\n========== BLOCK ${index} ==========\n`;
 
 
-      debug +=
+      blockDebug +=
         `Length: ${result.length}\n\n`;
 
 
@@ -140,17 +129,17 @@ export function decodeSALicense(
 
         if(i % 16 === 0){
 
-          debug +=
+          blockDebug +=
             i
-              .toString(16)
-              .padStart(4,"0")
+            .toString(16)
+            .padStart(4,"0")
             +
             ": ";
 
         }
 
 
-        debug +=
+        blockDebug +=
           result[i]
           .toString(16)
           .padStart(2,"0")
@@ -158,18 +147,13 @@ export function decodeSALicense(
           " ";
 
 
-
         if(i % 16 === 15){
 
-          debug += "\n";
+          blockDebug += "\n";
 
         }
 
       }
-
-
-      debug += "\n\n";
-
 
 
       const combined =
@@ -179,10 +163,8 @@ export function decodeSALicense(
         );
 
 
-
       combined.set(
-        decrypted,
-        0
+        decrypted
       );
 
 
@@ -190,7 +172,6 @@ export function decodeSALicense(
         result,
         decrypted.length
       );
-
 
 
       decrypted =
@@ -202,14 +183,10 @@ export function decodeSALicense(
 
 
 
-  (window as any).__blockDebug =
-    debug;
-
-
-
   /*
-     FULL DECRYPTED STRING
+    RAW DECRYPTED STRING
   */
+
 
   const rawString =
     bytesToRawString(
@@ -217,70 +194,50 @@ export function decodeSALicense(
     );
 
 
-  (window as any).__rawLicenseString =
-    rawString;
-
-
-
-  /*
-     Remove RSA header
-  */
-
   const payload =
     decrypted.slice(16);
 
 
-
-  const payloadRaw =
+  const payloadRawString =
     bytesToRawString(
       payload
     );
 
 
+
+  (window as any).__rawLicenseString =
+    rawString;
+
+
+
   (window as any).__payloadRawString =
-    payloadRaw;
+    payloadRawString;
 
 
 
   /*
-     HEX DEBUG
+     SHOW EVERYTHING IN CURRENT DEBUG WINDOW
   */
 
-  let payloadHex = "";
+
+  (window as any).__blockDebug =
+
+`
+================ RAW LICENSE STRING ================
+
+${rawString}
 
 
-  for(
-    let i=0;
-    i<payload.length;
-    i++
-  ){
+================ PAYLOAD STRING ====================
 
-    if(i % 16 === 0){
-
-      payloadHex +=
-        "\n" +
-        i
-          .toString(16)
-          .padStart(4,"0")
-        +
-        ": ";
-
-    }
+${payloadRawString}
 
 
-    payloadHex +=
-      payload[i]
-      .toString(16)
-      .padStart(2,"0")
-      +
-      " ";
+================ BLOCK DEBUG ======================
 
-  }
+${blockDebug}
 
-
-
-  (window as any).__payloadHex =
-    payloadHex;
+`;
 
 
 
