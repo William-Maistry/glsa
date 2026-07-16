@@ -47,71 +47,86 @@ export interface SALicense {
 
 
 
-function cleanAscii(bytes:Uint8Array){
 
-  return Array.from(bytes)
-    .map(b=>{
-
-      if(
-        b>=32 &&
-        b<=126
-      ){
-        return String.fromCharCode(b);
-      }
-
-      return "";
-
-    })
-    .join("");
-
-}
-
-
-
-function extractStrings(bytes:Uint8Array){
-
-  const text =
-    cleanAscii(bytes);
-
-
-  const parts =
-    text
-    .split(/\s+/)
-    .filter(Boolean);
-
-
-  return parts;
-
-}
-
-
-
-
-function decodeBCDDate(
-  bytes:number[]
+function decodeHeader(
+  bytes:Uint8Array
 ){
 
-  if(bytes.length < 4){
-    return "";
+  /*
+    SA licence text block is the first 50 bytes only
+  */
+
+  const header =
+    bytes.slice(0,50);
+
+
+  let text = "";
+
+
+  for(const b of header){
+
+
+    if(
+      b >= 32 &&
+      b <= 126
+    ){
+
+      text +=
+        String.fromCharCode(b);
+
+    }
+
+
+    else if(b === 0xe0){
+
+      text += "|";
+
+    }
+
+
+    else if(b === 0xe1){
+
+      text += "~";
+
+    }
+
   }
 
 
-  const year =
-    2000 + bytes[0];
+
+  const fields =
+    text
+    .split(/[|~]+/)
+    .filter(Boolean);
 
 
-  const month =
-    String(bytes[1])
-    .padStart(2,"0");
+
+  return fields;
+
+}
 
 
-  const day =
-    String(bytes[2])
-    .padStart(2,"0");
 
+
+
+function decodeDate(
+  year:number,
+  month:number,
+  day:number
+){
 
   return (
-    `${day}/${month}/${year}`
+
+    String(day)
+    .padStart(2,"0")
+    +
+    "/" +
+    String(month)
+    .padStart(2,"0")
+    +
+    "/" +
+    String(2000 + year)
+
   );
 
 }
@@ -119,56 +134,57 @@ function decodeBCDDate(
 
 
 
-
-function findDateBlocks(
+function extractDates(
  bytes:Uint8Array
 ){
 
- const dates:string[]=[];
+  const dates:string[]=[];
 
 
- for(
-   let i=0;
-   i<bytes.length-3;
-   i++
- ){
+  for(
+    let i=50;
+    i<bytes.length-3;
+    i++
+  ){
 
-   const a=bytes[i];
-   const b=bytes[i+1];
-   const c=bytes[i+2];
+    /*
+       Dates appear as:
 
+       20 YY MM DD
 
-   /*
-    SA licence dates are stored:
+       Example:
 
-    20 YY MM DD
-
-   */
-
-   if(
-     a===0x20 &&
-     b>=0x10 &&
-     b<=0x30 &&
-     c>=1 &&
-     c<=12
-   ){
-
-     dates.push(
-       decodeBCDDate([
-         b,
-         c,
-         bytes[i+3]
-       ])
-     );
-
-   }
-
- }
+       20 19 10 15
+    */
 
 
- return dates;
+    if(
+      bytes[i] === 0x20 &&
+      bytes[i+1] <= 30 &&
+      bytes[i+2] <= 12 &&
+      bytes[i+3] <= 31
+    ){
+
+      dates.push(
+
+        decodeDate(
+          bytes[i+1],
+          bytes[i+2],
+          bytes[i+3]
+        )
+
+      );
+
+    }
+
+  }
+
+
+  return dates;
 
 }
+
+
 
 
 
@@ -179,54 +195,56 @@ export function decodeSALicense(
 ):SALicense{
 
 
- const textParts =
-   extractStrings(bytes);
+ const fields =
+   decodeHeader(bytes);
 
+
+
+ /*
+ Expected:
+
+ 0 = 1
+ 1 = NAIDOO
+ 2 = CC
+ 3 = ZA
+ 4 = ZA
+ 5 = 0
+ 6 = 20550003P82D
+ 7 = 9905045090082
+
+ */
 
 
  const surname =
-   textParts.find(
-     x=>
-     /^[A-Z]+$/.test(x) &&
-     x.length>2
-   ) || "";
-
+   fields[1] || "";
 
 
  const initials =
-   textParts.find(
-     x=>
-     /^[A-Z]{2}$/.test(x)
-   ) || "";
-
-
-
- const id =
-   textParts.find(
-     x=>
-     /^\d{13}$/.test(x)
-   ) || "";
-
+   fields[2] || "";
 
 
  const licence =
-   textParts.find(
-     x=>
-     /^[0-9]{8}[A-Z0-9]+$/.test(x)
-   ) || "";
+   fields[6] || "";
+
+
+ const id =
+   fields[7] || "";
 
 
 
  const dates =
-   findDateBlocks(bytes);
+   extractDates(bytes);
 
 
 
  (window as any).__licenseDebug =
  `
-TEXT:
+FIELDS:
 
-${textParts.join("\n")}
+${fields.map(
+ (x,i)=>
+ `${i} => ${x}`
+).join("\n")}
 
 
 DATES:
@@ -237,12 +255,16 @@ ${dates.join("\n")}
 
 
 
+
+
  return {
 
 
   vehicleLicenses:[
+
     {
       code:"C1",
+
       issueDate:
         dates[0] || "",
 
@@ -250,7 +272,9 @@ ${dates.join("\n")}
         dates[2] || "",
 
       restriction:"0"
+
     }
+
   ],
 
 
@@ -258,13 +282,10 @@ ${dates.join("\n")}
   idNumber:id,
 
 
-  idNumberType:
-    "02",
+  idNumberType:"02",
 
 
-
-  idCountryOfIssue:
-    "ZA",
+  idCountryOfIssue:"ZA",
 
 
 
@@ -275,37 +296,37 @@ ${dates.join("\n")}
 
 
 
-  gender:
-    "Male",
+  gender:"Male",
 
 
 
   birthDate:
+
     id.length===13
+
     ?
+
     `${id.substring(4,6)}/${id.substring(2,4)}/19${id.substring(0,2)}`
+
     :
+
     "",
 
 
 
-  driverRestrictions:
-    "0",
+  driverRestrictions:"0",
 
 
 
-  licenseCountryOfIssue:
-    "ZA",
+  licenseCountryOfIssue:"ZA",
 
 
 
-  licenseIssueNumber:
-    "1",
+  licenseIssueNumber:"1",
 
 
 
-  licenseNumber:
-    licence,
+  licenseNumber:licence,
 
 
 
@@ -319,12 +340,12 @@ ${dates.join("\n")}
 
 
 
-  professionalDrivingPermitExpiry:
-    null,
+  professionalDrivingPermitExpiry:null,
 
 
 
   professionalDrivingPermitCodes:[]
+
  };
 
 
