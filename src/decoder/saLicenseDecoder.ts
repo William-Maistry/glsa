@@ -1,411 +1,184 @@
-export interface VehicleLicense {
-
-  code:string;
-  issueDate:string;
-  expiryDate:string;
-  restriction:string;
-
-}
-
-
-export interface SALicense {
-
-  vehicleLicenses:VehicleLicense[];
-
-  idNumber:string;
-
-  idNumberType:string;
-
-  idCountryOfIssue:string;
-
-  surname:string;
-
-  initials:string;
-
-  gender:string;
-
-  birthDate:string;
-
-  driverRestrictions:string;
-
-  licenseCountryOfIssue:string;
-
-  licenseIssueNumber:string;
-
-  licenseNumber:string;
-
-  licenseValidityStart:string;
-
-  licenseValidityExpiry:string;
-
-  professionalDrivingPermitExpiry:string|null;
-
-  professionalDrivingPermitCodes:string[];
-
-}
-
-
-
-
-
-function bytesToAscii(bytes:Uint8Array):string
-{
-
-  return Array.from(bytes)
-    .map(b=>{
-
-      if(
-        b>=32 &&
-        b<=126
-      )
-      {
-        return String.fromCharCode(b);
-      }
-
-      return " ";
-
-    })
-    .join("");
-
-}
-
-
-
-
-
-function decodeBirthDate(id:string):string
-{
-
-  if(id.length!==13)
-    return "";
-
-
-  const yy=id.substring(0,2);
-  const mm=id.substring(2,4);
-  const dd=id.substring(4,6);
-
-
-  return `${dd}/${mm}/19${yy}`;
-
-}
-
-
-
-
-
-function decodeDate(
- y:number,
- m:number,
- d:number
-):string
-{
-
-  if(
-    y>99 ||
-    m<1 ||
-    m>12 ||
-    d<1 ||
-    d>31
-  )
-  {
-    return "";
-  }
-
-
-  return `${String(d).padStart(2,"0")}/${String(m).padStart(2,"0")}/${2000+y}`;
-
-}
-
-
-
-
-
-function findDates(
- bytes:Uint8Array
-):string[]
-{
-
- const dates:string[]=[];
-
-
- for(
-   let i=0;
-   i<bytes.length-2;
-   i++
- )
- {
-
-   const y=bytes[i];
-   const m=bytes[i+1];
-   const d=bytes[i+2];
-
-
-   /*
-     SA licence binary dates:
-
-     YY MM DD
-
-     Examples:
-     19 10 15
-     24 11 03
-     29 11 02
-
-   */
-
-
-   if(
-     y>=15 &&
-     y<=40 &&
-     m>=1 &&
-     m<=12 &&
-     d>=1 &&
-     d<=31
-   )
-   {
-
-     const date =
-       decodeDate(
-         y,
-         m,
-         d
-       );
-
-
-     if(
-       date &&
-       !dates.includes(date)
-     )
-     {
-       dates.push(date);
-     }
-
-   }
-
- }
-
-
- return dates;
-
-}
-
-
-
-
-
-function extractTextFields(
- text:string
-)
-{
-
- const fields =
-   text
-   .split(/\s+/)
-   .filter(Boolean);
-
-
-
- return {
-
-
- surname:
-   fields.find(
-     x=>/^[A-Z]{3,}$/.test(x)
-   ) || "",
-
-
-
- initials:
-   fields.find(
-     x=>/^[A-Z]{2}$/.test(x)
-   ) || "",
-
-
-
- idNumber:
-   fields.find(
-     x=>/^\d{13}$/.test(x)
-   ) || "",
-
-
-
- licenseNumber:
-   fields.find(
-     x=>/^\d{8}[A-Z0-9]+$/.test(x)
-   ) || ""
-
- };
-
-}
-
-
-
-
+import { rsaDecryptBlock } from "./rsa";
+import { parseLicenseData } from "./parser";
+import type { SALicenseData } from "./types";
 
 export function decodeSALicense(
- bytes:Uint8Array
-):SALicense
-{
+  bytes: Uint8Array
+): SALicenseData {
 
+  if (bytes.length !== 720) {
+    throw new Error(
+      `Invalid barcode length. Expected 720 bytes, got ${bytes.length}`
+    );
+  }
 
- /*
-   The SA licence QR has a text section
-   followed by binary data.
+  const versionBytes =
+    bytes.slice(0, 4);
 
-   From your dump the text starts
-   around byte 16 and ends around
-   byte 63.
- */
+  let version = 2;
 
+  if (versionBytes[1] === 0xe1) {
+    version = 1;
+  }
 
- const textBytes =
-   bytes.slice(16,63);
+  const encrypted =
+    bytes.slice(6);
 
+  const blocks = [
 
+    encrypted.slice(0, 128),
 
- const ascii =
-   bytesToAscii(textBytes);
+    encrypted.slice(128, 256),
 
+    encrypted.slice(256, 384),
 
+    encrypted.slice(384, 512),
 
+    encrypted.slice(512, 640),
 
- const fields =
-   extractTextFields(ascii);
+    encrypted.slice(640, 714)
 
+  ];
 
+  let decrypted =
+    new Uint8Array();
 
+  let debug = "";
 
+  blocks.forEach((block, index) => {
 
- const binary =
-   bytes.slice(63);
+    const result =
+      rsaDecryptBlock(
+        block,
+        version
+      );
 
+    debug +=
+      `\n========== BLOCK ${index} ==========\n`;
 
+    debug +=
+      `Length: ${result.length}\n\n`;
 
+    for (
+      let i = 0;
+      i < result.length;
+      i++
+    ) {
 
- const dates =
-   findDates(binary);
+      if (i % 16 === 0) {
 
+        debug +=
+          i
+            .toString(16)
+            .padStart(4, "0") +
+          ": ";
 
+      }
 
+      debug +=
+        result[i]
+          .toString(16)
+          .padStart(2, "0") +
+        " ";
 
+      if (i % 16 === 15) {
+        debug += "\n";
+      }
 
- (window as any).__licenseDebug =
- {
+    }
 
-   ascii,
+    debug += "\n\n";
 
-   fields,
+    const combined =
+      new Uint8Array(
+        decrypted.length +
+        result.length
+      );
 
-   binaryStart:63,
+    combined.set(
+      decrypted,
+      0
+    );
 
-   binary:Array.from(binary),
+    combined.set(
+      result,
+      decrypted.length
+    );
 
-   dates
+    decrypted =
+      combined;
 
- };
+  });
 
+  (window as any).__blockDebug =
+    debug;
 
+  let hex = "";
 
+  for (
+    let i = 0;
+    i < decrypted.length;
+    i++
+  ) {
 
+    if (i % 16 === 0) {
 
- return {
+      hex +=
+        "\n" +
+        i
+          .toString(16)
+          .padStart(4, "0") +
+        ": ";
 
+    }
 
- vehicleLicenses:[
+    hex +=
+      decrypted[i]
+        .toString(16)
+        .padStart(2, "0") +
+      " ";
 
- {
+  }
 
-   /*
-     Still empty intentionally.
-     We need the category byte map.
-   */
+const payload =
+  decrypted.slice(16);
 
-   code:"",
 
-   issueDate:
-     dates[0] || "",
+let payloadHex = "";
 
-   expiryDate:
-     dates[2] || "",
+for (
+  let i = 0;
+  i < payload.length;
+  i++
+) {
 
-   restriction:""
+  if (i % 16 === 0) {
 
- }
+    payloadHex +=
+      "\n" +
+      i
+        .toString(16)
+        .padStart(4,"0") +
+      ": ";
 
- ],
+  }
 
+  payloadHex +=
+    payload[i]
+      .toString(16)
+      .padStart(2,"0") +
+    " ";
 
+}
 
 
- idNumber:
-   fields.idNumber,
+(window as any).__payloadHex =
+  payloadHex;
 
 
 
- idNumberType:
-   "",
-
-
-
- idCountryOfIssue:
-   "",
-
-
-
- surname:
-   fields.surname,
-
-
-
- initials:
-   fields.initials,
-
-
-
- gender:"",
-
-
-
- birthDate:
-   decodeBirthDate(
-     fields.idNumber
-   ),
-
-
-
- driverRestrictions:"",
-
-
-
- licenseCountryOfIssue:"",
-
-
-
- licenseIssueNumber:"",
-
-
-
- licenseNumber:
-   fields.licenseNumber,
-
-
-
- licenseValidityStart:
-   dates[1] || "",
-
-
-
- licenseValidityExpiry:
-   dates[2] || "",
-
-
-
- professionalDrivingPermitExpiry:null,
-
-
-
- professionalDrivingPermitCodes:[]
-
- };
-
+return parseLicenseData(
+  payload
+);
 
 }
