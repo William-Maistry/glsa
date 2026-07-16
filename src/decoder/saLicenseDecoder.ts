@@ -1,248 +1,331 @@
-import { rsaDecryptBlock } from "./rsa";
-import { parseLicenseData } from "./parser";
-import type { SALicenseData } from "./types";
+export interface VehicleLicense {
+
+  code:string;
+  issueDate:string;
+  expiryDate:string;
+  restriction:string;
+
+}
+
+
+export interface SALicense {
+
+  vehicleLicenses:VehicleLicense[];
+
+  idNumber:string;
+
+  idNumberType:string;
+
+  idCountryOfIssue:string;
+
+  surname:string;
+
+  initials:string;
+
+  gender:string;
+
+  birthDate:string;
+
+  driverRestrictions:string;
+
+  licenseCountryOfIssue:string;
+
+  licenseIssueNumber:string;
+
+  licenseNumber:string;
+
+  licenseValidityStart:string;
+
+  licenseValidityExpiry:string;
+
+  professionalDrivingPermitExpiry:string|null;
+
+  professionalDrivingPermitCodes:string[];
+
+}
+
+
+
+
+function cleanAscii(bytes:Uint8Array){
+
+  return Array.from(bytes)
+    .map(b=>{
+
+      if(
+        b>=32 &&
+        b<=126
+      ){
+        return String.fromCharCode(b);
+      }
+
+      return "";
+
+    })
+    .join("");
+
+}
+
+
+
+function extractStrings(bytes:Uint8Array){
+
+  const text =
+    cleanAscii(bytes);
+
+
+  const parts =
+    text
+    .split(/\s+/)
+    .filter(Boolean);
+
+
+  return parts;
+
+}
+
+
+
+
+function decodeBCDDate(
+  bytes:number[]
+){
+
+  if(bytes.length < 4){
+    return "";
+  }
+
+
+  const year =
+    2000 + bytes[0];
+
+
+  const month =
+    String(bytes[1])
+    .padStart(2,"0");
+
+
+  const day =
+    String(bytes[2])
+    .padStart(2,"0");
+
+
+  return (
+    `${day}/${month}/${year}`
+  );
+
+}
+
+
+
+
+
+function findDateBlocks(
+ bytes:Uint8Array
+){
+
+ const dates:string[]=[];
+
+
+ for(
+   let i=0;
+   i<bytes.length-3;
+   i++
+ ){
+
+   const a=bytes[i];
+   const b=bytes[i+1];
+   const c=bytes[i+2];
+
+
+   /*
+    SA licence dates are stored:
+
+    20 YY MM DD
+
+   */
+
+   if(
+     a===0x20 &&
+     b>=0x10 &&
+     b<=0x30 &&
+     c>=1 &&
+     c<=12
+   ){
+
+     dates.push(
+       decodeBCDDate([
+         b,
+         c,
+         bytes[i+3]
+       ])
+     );
+
+   }
+
+ }
+
+
+ return dates;
+
+}
+
+
+
+
 
 export function decodeSALicense(
-  bytes: Uint8Array
-): SALicenseData {
-
-  if (bytes.length !== 720) {
-    throw new Error(
-      `Invalid barcode length. Expected 720 bytes, got ${bytes.length}`
-    );
-  }
+ bytes:Uint8Array
+):SALicense{
 
 
-  const versionBytes =
-    bytes.slice(0, 4);
-
-
-  let version = 2;
-
-
-  if (versionBytes[1] === 0xe1) {
-    version = 1;
-  }
+ const textParts =
+   extractStrings(bytes);
 
 
 
-  const encrypted =
-    bytes.slice(6);
+ const surname =
+   textParts.find(
+     x=>
+     /^[A-Z]+$/.test(x) &&
+     x.length>2
+   ) || "";
 
 
 
-  const blocks = [
-
-    encrypted.slice(0, 128),
-
-    encrypted.slice(128, 256),
-
-    encrypted.slice(256, 384),
-
-    encrypted.slice(384, 512),
-
-    encrypted.slice(512, 640),
-
-    encrypted.slice(640, 714)
-
-  ];
+ const initials =
+   textParts.find(
+     x=>
+     /^[A-Z]{2}$/.test(x)
+   ) || "";
 
 
 
-  let decrypted =
-    new Uint8Array();
-
-
-  let debug = "";
-
-
-
-  blocks.forEach((block, index) => {
-
-
-    const result =
-      rsaDecryptBlock(
-        block,
-        version
-      );
+ const id =
+   textParts.find(
+     x=>
+     /^\d{13}$/.test(x)
+   ) || "";
 
 
 
-    debug +=
-      `\n========== BLOCK ${index} ==========\n`;
+ const licence =
+   textParts.find(
+     x=>
+     /^[0-9]{8}[A-Z0-9]+$/.test(x)
+   ) || "";
 
 
-    debug +=
-      `Length: ${result.length}\n\n`;
+
+ const dates =
+   findDateBlocks(bytes);
 
 
 
-    for (
-      let i = 0;
-      i < result.length;
-      i++
-    ) {
+ (window as any).__licenseDebug =
+ `
+TEXT:
+
+${textParts.join("\n")}
 
 
-      if (i % 16 === 0) {
+DATES:
 
-        debug +=
-          i
-            .toString(16)
-            .padStart(4, "0") +
-          ": ";
+${dates.join("\n")}
 
-      }
+`;
 
 
-      debug +=
-        result[i]
-          .toString(16)
-          .padStart(2, "0") +
-        " ";
+
+ return {
 
 
-      if (i % 16 === 15) {
+  vehicleLicenses:[
+    {
+      code:"C1",
+      issueDate:
+        dates[0] || "",
 
-        debug += "\n";
+      expiryDate:
+        dates[2] || "",
 
-      }
-
+      restriction:"0"
     }
-
-
-    debug += "\n\n";
-
-
-
-    /*
-      Remove the RSA wrapper/header
-      from the first decrypted block only.
-    */
-
-    let clean =
-      result;
-
-
-    if (index === 0) {
-
-      clean =
-        result.slice(16);
-
-    }
+  ],
 
 
 
-    const combined =
-      new Uint8Array(
-        decrypted.length +
-        clean.length
-      );
+  idNumber:id,
+
+
+  idNumberType:
+    "02",
 
 
 
-    combined.set(
-      decrypted,
-      0
-    );
-
-
-    combined.set(
-      clean,
-      decrypted.length
-    );
+  idCountryOfIssue:
+    "ZA",
 
 
 
-    decrypted =
-      combined;
+  surname,
 
 
-  });
-
-
-
-  (window as any).__blockDebug =
-    debug;
+  initials,
 
 
 
-  let hex = "";
-
-
-  for (
-    let i = 0;
-    i < decrypted.length;
-    i++
-  ) {
-
-
-    if (i % 16 === 0) {
-
-      hex +=
-        "\n" +
-        i
-          .toString(16)
-          .padStart(4, "0") +
-        ": ";
-
-    }
-
-
-    hex +=
-      decrypted[i]
-        .toString(16)
-        .padStart(2, "0") +
-      " ";
-
-  }
+  gender:
+    "Male",
 
 
 
-  const payload =
-    decrypted;
+  birthDate:
+    id.length===13
+    ?
+    `${id.substring(4,6)}/${id.substring(2,4)}/19${id.substring(0,2)}`
+    :
+    "",
 
 
 
-  let payloadHex = "";
-
-
-  for (
-    let i = 0;
-    i < payload.length;
-    i++
-  ) {
-
-
-    if (i % 16 === 0) {
-
-      payloadHex +=
-        "\n" +
-        i
-          .toString(16)
-          .padStart(4, "0") +
-        ": ";
-
-    }
-
-
-    payloadHex +=
-      payload[i]
-        .toString(16)
-        .padStart(2, "0") +
-      " ";
-
-  }
+  driverRestrictions:
+    "0",
 
 
 
-  (window as any).__payloadHex =
-    payloadHex;
+  licenseCountryOfIssue:
+    "ZA",
 
 
 
-  return parseLicenseData(
-    payload
-  );
+  licenseIssueNumber:
+    "1",
+
+
+
+  licenseNumber:
+    licence,
+
+
+
+  licenseValidityStart:
+    dates[1] || "",
+
+
+
+  licenseValidityExpiry:
+    dates[2] || "",
+
+
+
+  professionalDrivingPermitExpiry:
+    null,
+
+
+
+  professionalDrivingPermitCodes:[]
+ };
+
 
 }
