@@ -1,15 +1,10 @@
 import type {
   SALicenseData,
-  VehicleLicense
 } from "./types";
 
 
 
-
-
-
-
-function bytesToNibbles(
+function bytesToText(
   bytes: Uint8Array
 ): string {
 
@@ -17,13 +12,17 @@ function bytesToNibbles(
 
   for (const b of bytes) {
 
-    result +=
-      ((b >> 4) & 0xf)
-        .toString(16);
+    if (
+      b >= 32 &&
+      b <= 126
+    ) {
+      result += String.fromCharCode(b);
+    }
+    else {
 
-    result +=
-      (b & 0xf)
-        .toString(16);
+      result += " ";
+
+    }
 
   }
 
@@ -34,31 +33,106 @@ function bytesToNibbles(
 
 
 
-function decodeDate(
-  value:string
-):string {
 
-  if(
-    !value ||
-    value.length !== 8
-  ){
-    return "";
+function splitFields(
+  bytes: Uint8Array
+): string[] {
+
+
+  const fields:string[] = [];
+
+  let current = "";
+
+
+  for(const b of bytes){
+
+
+    if(
+      b === 0xe0 ||
+      b === 0xe1
+    ){
+
+      fields.push(current);
+      current = "";
+
+    }
+    else {
+
+      if(
+        b >= 32 &&
+        b <=126
+      ){
+
+        current +=
+          String.fromCharCode(b);
+
+      }
+
+    }
+
+
   }
 
 
-  if(value[0] !== "2"){
+  if(current.length){
+    fields.push(current);
+  }
+
+
+  return fields;
+
+}
+
+
+
+
+
+
+
+function formatDate(
+ year:number,
+ month:number,
+ day:number
+):string {
+
+
+  if(
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ){
+
     return "";
+
   }
 
 
   return (
-    value.substring(6,8)
-    + "/"
+
+    day
+      .toString()
+      .padStart(2,"0")
+
     +
-    value.substring(4,6)
-    + "/"
+
+    "/"
+
     +
-    value.substring(0,4)
+
+    month
+      .toString()
+      .padStart(2,"0")
+
+    +
+
+    "/"
+
+    +
+
+    year
+      .toString()
+
   );
 
 }
@@ -67,57 +141,66 @@ function decodeDate(
 
 
 
-function splitStrings(
+
+
+function findDates(
  bytes:Uint8Array
-):string[] {
+):string[]{
 
 
- const result:string[]=[];
+ const dates:string[]=[];
 
- let current="";
 
 
  for(
   let i=0;
-  i<bytes.length;
+  i<bytes.length-3;
   i++
  ){
 
-  const b =
-    bytes[i];
+
+   /*
+      20 YY MM DD
+   */
 
 
-  if(
-    b===0xe0 ||
-    b===0xe1
-  ){
+   if(
+    bytes[i] === 0x20
+   ){
 
-    if(current.length){
-      result.push(current);
-    }
+     const year =
+       2000 + bytes[i+1];
 
-    current="";
 
-  }
-  else if(
-    b>=32 &&
-    b<=126
-  ){
+     const month =
+       bytes[i+2];
 
-    current +=
-      String.fromCharCode(b);
 
-  }
+     const day =
+       bytes[i+3];
+
+
+     const date =
+       formatDate(
+        year,
+        month,
+        day
+       );
+
+
+     if(date){
+       dates.push(date);
+     }
+
+
+   }
+
 
  }
 
 
- if(current.length){
-  result.push(current);
- }
 
-
- return result;
+ return dates;
 
 }
 
@@ -125,23 +208,67 @@ function splitStrings(
 
 
 
-function decodeVehicleCode(
- nibbles:string
+
+
+
+
+function decodeGender(
+ value:number
 ):string {
 
 
- if(
-  nibbles.includes("133")
- ){
+ switch(value){
 
-  return "C1";
+  case 0x36:
+    return "Male";
+
+
+  case 0x35:
+    return "Female";
+
+
+  default:
+    return "";
 
  }
 
+}
 
- return "";
+
+
+
+
+
+
+
+
+function findVehicleCode(
+ bytes:Uint8Array
+):string {
+
+
+ /*
+   Vehicle codes are stored
+   as ASCII in the binary.
+ */
+
+
+ const text =
+   bytesToText(bytes);
+
+
+
+ const match =
+   text.match(
+     /\b[A-Z][0-9]\b/
+   );
+
+
+ return match?.[0] ?? "";
 
 }
+
+
 
 
 
@@ -156,35 +283,119 @@ export function parseLicenseData(
 
 
  const stringLength =
-  bytes[5];
+   bytes[5];
+
 
 
  const binaryLength =
-  bytes[7];
+   bytes[7];
 
 
 
  const stringStart =
-  10;
+   10;
+
 
 
  const stringEnd =
-  stringStart + stringLength;
+   stringStart +
+   stringLength;
 
 
 
  const stringBytes =
-  bytes.slice(
+   bytes.slice(
     stringStart,
     stringEnd
-  );
+   );
 
 
 
  const fields =
-  splitStrings(
+   splitFields(
     stringBytes
-  );
+   );
+
+
+
+
+ const binary =
+   bytes.slice(
+    stringEnd,
+    stringEnd + binaryLength
+   );
+
+
+
+ const dates =
+   findDates(
+    binary
+   );
+
+
+
+
+
+ /*
+    Debug
+ */
+
+
+ let binaryDebug = "";
+
+ for(let i=0;i<binary.length;i++){
+
+   if(i%16===0){
+
+    binaryDebug +=
+      "\n"+
+      i.toString(16)
+      .padStart(4,"0")
+      +
+      ": ";
+
+   }
+
+
+   binaryDebug +=
+    binary[i]
+    .toString(16)
+    .padStart(2,"0")
+    +" ";
+
+ }
+
+
+
+ (window as any).__licenseDebug = {
+
+   fields,
+
+   dates,
+
+   binaryDebug
+
+ };
+
+
+
+
+
+
+
+
+
+ const vehicleCode =
+   findVehicleCode(
+     binary
+   );
+
+
+
+ const gender =
+   decodeGender(
+    binary[binary.length-2]
+   );
 
 
 
@@ -193,314 +404,155 @@ export function parseLicenseData(
  const result:SALicenseData = {
 
 
-  vehicleLicenses:[],
 
-
-  idNumber:
-    fields.find(
-      x=>/^\d{13}$/.test(x)
-    ) || "",
-
-
-  idNumberType:
-    "",
-
-
-  idCountryOfIssue:
-    fields.find(
-      x=>x==="ZA"
-    ) || "",
-
-
-  surname:
-    fields.find(
-      x=>/^[A-Z]{3,}$/.test(x)
-    ) || "",
-
-
-  initials:
-    fields.find(
-      x=>/^[A-Z]{2}$/.test(x)
-    ) || "",
+ idNumber:
+   fields.find(
+    x=>/^\d{13}$/.test(x)
+   ) || "",
 
 
 
-  gender:
-    "",
+ idNumberType:
+   binary[0]?.toString(16)
+   .padStart(2,"0")
+   || "",
 
 
-  birthDate:
-    "",
 
 
-  driverRestrictions:
-    "",
+ idCountryOfIssue:
+   fields.find(
+    x=>x==="ZA"
+   )
+   || "",
 
 
-  licenseCountryOfIssue:
-    fields.filter(
-      x=>x==="ZA"
-    )[1] || "ZA",
 
 
-  licenseIssueNumber:
-    "",
+ surname:
+   fields.find(
+    x=>
+     /^[A-Z]{3,}$/.test(x)
+   )
+   || "",
 
 
-  licenseNumber:
-    fields.find(
-      x=>/^\d{8}[A-Z0-9]+$/.test(x)
-    ) || "",
 
 
-  licenseValidityStart:
-    "",
+ initials:
+   fields.find(
+    x=>
+     /^[A-Z]{2}$/.test(x)
+   )
+   || "",
 
 
-  licenseValidityExpiry:
-    "",
 
 
-  professionalDrivingPermitExpiry:
-    null,
+ gender,
 
 
-  professionalDrivingPermitCodes:
-    []
+
+
+ birthDate:
+   "",
+
+
+
+
+
+ driverRestrictions:
+   "",
+
+
+
+
+ licenseCountryOfIssue:
+   fields.find(
+    x=>x==="ZA"
+   )
+   || "",
+
+
+
+
+ licenseIssueNumber:
+   binary[72]
+   ?.toString(16)
+   || "",
+
+
+
+
+
+ licenseNumber:
+   fields.find(
+    x=>
+     /^[0-9]{8}[A-Z0-9]+$/.test(x)
+   )
+   || "",
+
+
+
+
+ licenseValidityStart:
+   dates[1] || "",
+
+
+
+
+ licenseValidityExpiry:
+   dates[2] || "",
+
+
+
+
+
+ professionalDrivingPermitExpiry:
+   null,
+
+
+
+
+ professionalDrivingPermitCodes:
+   [],
+
+
+
+
+ vehicleLicenses:
+
+   vehicleCode
+
+   ?
+
+   [
+
+    {
+
+     code:
+       vehicleCode,
+
+     restriction:
+       binary[71]
+       ?.toString(16)
+       || "",
+
+     firstIssueDate:
+       dates[0] || ""
+
+    }
+
+   ]
+
+   :
+
+   []
 
  };
 
 
+ return result;
 
-
-
-/*
- BINARY SECTION
-*/
-
-
-const binary =
- bytes.slice(
-  stringEnd,
-  stringEnd + binaryLength
- );
-
-
-
-const nibbles =
- bytesToNibbles(binary);
-
-
-
-let pos=0;
-
-
-
-function read(
- length:number
-){
-
- const value =
-  nibbles.substring(
-    pos,
-    pos + length
-  );
-
-
- pos += length;
-
-
- return value;
-
-}
-
-
-
-
-/*
- FIRST ISSUE DATES
-*/
-
-
-const dates:string[]=[];
-
-
-for(
- let i=0;
- i<4;
- i++
-){
-
- const raw =
-  read(8);
-
-
- dates.push(
-  decodeDate(raw)
- );
-
-}
-
-
-
-
-/*
- DRIVER RESTRICTION
-*/
-
-
-result.driverRestrictions =
- read(2);
-
-
-
-
-
-/*
- PRDP
-*/
-
-
-const prdp =
- read(8);
-
-
-if(prdp){
-
- result.professionalDrivingPermitExpiry =
-  decodeDate(prdp);
-
-}
-
-
-
-
-/*
- LICENCE ISSUE NUMBER
-*/
-
-
-result.licenseIssueNumber =
- read(2);
-
-
-
-
-
-/*
- BIRTH DATE
-*/
-
-
-result.birthDate =
- decodeDate(
-  read(8)
- );
-
-
-
-
-
-/*
- VALID DATES
-*/
-
-
-result.licenseValidityStart =
- decodeDate(
-  read(8)
- );
-
-
-result.licenseValidityExpiry =
- decodeDate(
-  read(8)
- );
-
-
-
-
-
-/*
- GENDER
-*/
-
-
-const genderCode =
- read(2);
-
-
-if(genderCode==="36"){
- result.gender="Male";
-}
-else if(genderCode==="35"){
- result.gender="Female";
-}
-
-
-
-
-
-/*
- VEHICLE
-*/
-
-
-const vehicleCode =
- decodeVehicleCode(
-  nibbles
- );
-
-
-if(vehicleCode){
-
- const vehicle:VehicleLicense = {
-
-  code:
-   vehicleCode,
-
-  restriction:
-   result.driverRestrictions,
-
-  firstIssueDate:
-   dates[0] || ""
-
- };
-
-
- result.vehicleLicenses.push(
-  vehicle
- );
-
-}
-
-
-
-
-
-(window as any).__licenseDebug = {
-
-
-FIELDS: fields,
-
-
-NIBBLES:nibbles,
-
-
-POSITION:pos,
-
-
-DATES:dates,
-
-
-RESULT:result
-
-};
-
-
-
-
-
-return result;
 
 }
