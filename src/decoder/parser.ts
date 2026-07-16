@@ -1,6 +1,5 @@
 import type {
-  SALicenseData,
-  VehicleLicense
+  SALicenseData
 } from "./types";
 
 
@@ -14,7 +13,6 @@ function bytesToString(
   );
 
 }
-
 
 
 
@@ -44,38 +42,6 @@ function bytesToNibbles(
 
 
 
-function decodeDate(
-  value:string
-):string {
-
-
-  if(
-    !value ||
-    value.includes("a") ||
-    value.length !== 8
-  ){
-
-    return "";
-
-  }
-
-
-  return (
-    value.substring(0,4)
-    + "-"
-    +
-    value.substring(4,6)
-    + "-"
-    +
-    value.substring(6,8)
-  );
-
-}
-
-
-
-
-
 function splitStrings(
   bytes:Uint8Array
 ):string[] {
@@ -93,11 +59,10 @@ function splitStrings(
 
 
   for(
-    let i=0;
-    i<text.length;
+    let i = 0;
+    i < text.length;
     i++
   ){
-
 
     const code =
       text.charCodeAt(i);
@@ -142,7 +107,6 @@ function splitStrings(
 
 
 
-
 export function parseLicenseData(
   bytes:Uint8Array
 ):SALicenseData {
@@ -150,34 +114,24 @@ export function parseLicenseData(
 
 
   /*
-    HEADER
+    Find start of binary data.
+    The ASCII section ends before
+    the first binary marker.
   */
 
-  const stringLength =
-    bytes[5];
 
+  const binaryStart =
+    bytes.indexOf(0x02);
 
-  const binaryLength =
-    bytes[7];
-
-
-
-  const stringStart =
-    10;
-
-
-
-  const stringEnd =
-    stringStart +
-    stringLength;
 
 
 
   const stringBytes =
     bytes.slice(
-      stringStart,
-      stringEnd
+      0,
+      binaryStart
     );
+
 
 
 
@@ -188,27 +142,48 @@ export function parseLicenseData(
 
 
 
+
+
+  let stringHex = "";
+
+
+
+  for(
+    const b of stringBytes
+  ){
+
+    stringHex +=
+      b.toString(16)
+      .padStart(2,"0")
+      + " ";
+
+  }
+
+
+
+
+
+
   (window as any).__licenseDebug =
 
-"FIELDS\n\n"
+"STRING LENGTH: " +
+stringBytes.length +
 
-+
+"\n\nBINARY START: " +
+binaryStart +
+
+"\n\nSTRING HEX:\n" +
+
+stringHex +
+
+"\n\nFIELDS:\n\n" +
 
 fields
 .map(
-(x,i)=>
-`${i} => ${x}`
+  (x,i)=>
+  `${i} => ${x}`
 )
-.join("\n")
-
-+
-
-"\n\nRAW PAYLOAD"
-
-+
-
-(window as any).__payloadHex;
-
+.join("\n");
 
 
 
@@ -216,9 +191,10 @@ fields
 
 
   /*
-      STRING SECTION
+      Temporary mapping.
+      We will correct indexes
+      after seeing the fields.
   */
-
 
 
   const result:SALicenseData = {
@@ -229,7 +205,7 @@ fields
 
 
     idNumber:
-      fields[14] ?? "",
+      fields[8] ?? "",
 
 
     idNumberType:
@@ -237,7 +213,7 @@ fields
 
 
     idCountryOfIssue:
-      fields[7] ?? "",
+      fields[2] ?? "",
 
 
     surname:
@@ -245,7 +221,7 @@ fields
 
 
     initials:
-      fields[5] ?? "",
+      fields[1] ?? "",
 
 
     gender:
@@ -261,7 +237,7 @@ fields
 
 
     licenseCountryOfIssue:
-      fields[8] ?? "",
+      fields[2] ?? "",
 
 
     licenseIssueNumber:
@@ -269,7 +245,7 @@ fields
 
 
     licenseNumber:
-      fields[13] ?? "",
+      fields[7] ?? "",
 
 
     licenseValidityStart:
@@ -293,84 +269,14 @@ fields
 
 
 
-
-
-
   /*
-      VEHICLE DATA
+      Binary debug only
   */
-
-
-  const vehicleCodes =
-    (fields[0] ?? "")
-    .split(",");
-
-
-
-  const vehicleRestrictions =
-    (fields[9] ?? "")
-    .split(",");
-
-
-
-
-
-  for(
-    let i=0;
-    i<vehicleCodes.length;
-    i++
-  ){
-
-
-    if(vehicleCodes[i]){
-
-
-      const vehicle:VehicleLicense = {
-
-        code:
-          vehicleCodes[i],
-
-
-        restriction:
-          vehicleRestrictions[i] ?? "",
-
-
-        firstIssueDate:
-          ""
-
-      };
-
-
-      result.vehicleLicenses.push(
-        vehicle
-      );
-
-    }
-
-  }
-
-
-
-
-
-
-
-
-  /*
-      BINARY SECTION
-  */
-
-
-
-  const binaryStart =
-    stringEnd;
-
 
 
   const binary =
     bytes.slice(
-      binaryStart,
-      binaryStart + binaryLength
+      binaryStart
     );
 
 
@@ -382,247 +288,11 @@ fields
 
 
 
-  let pos = 0;
-
-
-
-
-  function read(
-    length:number
-  ){
-
-    const value =
-      nibbles.substring(
-        pos,
-        pos + length
-      );
-
-
-    pos += length;
-
-
-    return value;
-
-  }
-
-
-
-
-
-
-  /*
-      ID TYPE
-  */
-
-
-  result.idNumberType =
-    read(2);
-
-
-
-
-
-
-
-  /*
-      4 licence issue dates
-  */
-
-
-  const issueDates:string[] = [];
-
-
-  for(
-    let i=0;
-    i<4;
-    i++
-  ){
-
-
-    const date =
-      read(8);
-
-
-    issueDates.push(
-      decodeDate(date)
-    );
-
-  }
-
-
-
-
-
-  /*
-      Restrictions
-  */
-
-
-  result.driverRestrictions =
-    read(2);
-
-
-
-
-
-
-
-  /*
-      PrDP expiry
-  */
-
-
-  const prdp =
-    read(8);
-
-
-
-  if(
-    prdp &&
-    !prdp.includes("a")
-  ){
-
-    result.professionalDrivingPermitExpiry =
-      decodeDate(prdp);
-
-  }
-
-
-
-
-
-
-
-  /*
-      Issue number
-  */
-
-
-  result.licenseIssueNumber =
-    read(2);
-
-
-
-
-
-
-
-
-  /*
-      Birth date
-  */
-
-
-  result.birthDate =
-    decodeDate(
-      read(8)
-    );
-
-
-
-
-
-
-
-
-  /*
-      Valid from
-  */
-
-
-  result.licenseValidityStart =
-    decodeDate(
-      read(8)
-    );
-
-
-
-
-
-
-
-
-  /*
-      Valid to
-  */
-
-
-  result.licenseValidityExpiry =
-    decodeDate(
-      read(8)
-    );
-
-
-
-
-
-
-
-  /*
-      Gender
-  */
-
-
-  result.gender =
-    read(2);
-
-
-
-
-
-
-
-
-  /*
-      Add first issue date
-      to vehicles
-  */
-
-
-  if(
-    result.vehicleLicenses.length
-  ){
-
-    result.vehicleLicenses[0]
-      .firstIssueDate =
-      issueDates[0] ?? "";
-
-  }
-
-
-
-
-
-
-
-  /*
-      Extra debug
-  */
-
-
   (window as any).__licenseDebug +=
 
-"\n\n"
+"\n\nNIBBLES:\n\n" +
 
-+
-
-"NIBBLES\n"
-
-+
-
-nibbles
-
-+
-
-"\n\n"
-
-+
-
-"POSITION\n"
-
-+
-
-pos;
+nibbles;
 
 
 
