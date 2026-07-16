@@ -12,17 +12,24 @@ export function decodeSALicense(
     );
   }
 
+
   const versionBytes =
     bytes.slice(0, 4);
 
+
   let version = 2;
+
 
   if (versionBytes[1] === 0xe1) {
     version = 1;
   }
 
+
+
   const encrypted =
     bytes.slice(6);
+
+
 
   const blocks = [
 
@@ -40,12 +47,18 @@ export function decodeSALicense(
 
   ];
 
+
+
   let decrypted =
     new Uint8Array();
 
+
   let debug = "";
 
+
+
   blocks.forEach((block, index) => {
+
 
     const result =
       rsaDecryptBlock(
@@ -53,17 +66,23 @@ export function decodeSALicense(
         version
       );
 
+
+
     debug +=
       `\n========== BLOCK ${index} ==========\n`;
 
+
     debug +=
       `Length: ${result.length}\n\n`;
+
+
 
     for (
       let i = 0;
       i < result.length;
       i++
     ) {
+
 
       if (i % 16 === 0) {
 
@@ -75,51 +94,88 @@ export function decodeSALicense(
 
       }
 
+
       debug +=
         result[i]
           .toString(16)
           .padStart(2, "0") +
         " ";
 
+
       if (i % 16 === 15) {
+
         debug += "\n";
+
       }
 
     }
 
+
     debug += "\n\n";
+
+
+
+    /*
+      Remove the RSA wrapper/header
+      from the first decrypted block only.
+    */
+
+    let clean =
+      result;
+
+
+    if (index === 0) {
+
+      clean =
+        result.slice(16);
+
+    }
+
+
 
     const combined =
       new Uint8Array(
         decrypted.length +
-        result.length
+        clean.length
       );
+
+
 
     combined.set(
       decrypted,
       0
     );
 
+
     combined.set(
-      result,
+      clean,
       decrypted.length
     );
+
+
 
     decrypted =
       combined;
 
+
   });
+
+
 
   (window as any).__blockDebug =
     debug;
 
+
+
   let hex = "";
+
 
   for (
     let i = 0;
     i < decrypted.length;
     i++
   ) {
+
 
     if (i % 16 === 0) {
 
@@ -132,6 +188,7 @@ export function decodeSALicense(
 
     }
 
+
     hex +=
       decrypted[i]
         .toString(16)
@@ -140,45 +197,52 @@ export function decodeSALicense(
 
   }
 
-const payload =
-  decrypted.slice(16);
 
 
-let payloadHex = "";
+  const payload =
+    decrypted;
 
-for (
-  let i = 0;
-  i < payload.length;
-  i++
-) {
 
-  if (i % 16 === 0) {
+
+  let payloadHex = "";
+
+
+  for (
+    let i = 0;
+    i < payload.length;
+    i++
+  ) {
+
+
+    if (i % 16 === 0) {
+
+      payloadHex +=
+        "\n" +
+        i
+          .toString(16)
+          .padStart(4, "0") +
+        ": ";
+
+    }
+
 
     payloadHex +=
-      "\n" +
-      i
+      payload[i]
         .toString(16)
-        .padStart(4,"0") +
-      ": ";
+        .padStart(2, "0") +
+      " ";
 
   }
 
-  payloadHex +=
-    payload[i]
-      .toString(16)
-      .padStart(2,"0") +
-    " ";
-
-}
 
 
-(window as any).__payloadHex =
-  payloadHex;
+  (window as any).__payloadHex =
+    payloadHex;
 
 
 
-return parseLicenseData(
-  payload
-);
+  return parseLicenseData(
+    payload
+  );
 
 }
