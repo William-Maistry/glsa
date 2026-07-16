@@ -48,15 +48,23 @@ export interface SALicense {
 
 
 
-function cleanAscii(bytes:Uint8Array):string
+function bytesToAscii(bytes:Uint8Array):string
 {
 
   return Array.from(bytes)
-    .map(b =>
-      b >= 32 && b <= 126
-      ? String.fromCharCode(b)
-      : " "
-    )
+    .map(b=>{
+
+      if(
+        b>=32 &&
+        b<=126
+      )
+      {
+        return String.fromCharCode(b);
+      }
+
+      return " ";
+
+    })
     .join("");
 
 }
@@ -65,23 +73,16 @@ function cleanAscii(bytes:Uint8Array):string
 
 
 
-function decodeBirthDate(
- id:string
-):string
+function decodeBirthDate(id:string):string
 {
 
   if(id.length!==13)
     return "";
 
 
-  const yy =
-    id.substring(0,2);
-
-  const mm =
-    id.substring(2,4);
-
-  const dd =
-    id.substring(4,6);
+  const yy=id.substring(0,2);
+  const mm=id.substring(2,4);
+  const dd=id.substring(4,6);
 
 
   return `${dd}/${mm}/19${yy}`;
@@ -100,11 +101,11 @@ function decodeDate(
 {
 
   if(
-    y < 0 ||
-    m < 1 ||
-    m > 12 ||
-    d < 1 ||
-    d > 31
+    y>99 ||
+    m<1 ||
+    m>12 ||
+    d<1 ||
+    d>31
   )
   {
     return "";
@@ -119,7 +120,7 @@ function decodeDate(
 
 
 
-function findBinaryDates(
+function findDates(
  bytes:Uint8Array
 ):string[]
 {
@@ -128,9 +129,9 @@ function findBinaryDates(
 
 
  for(
-  let i=0;
-  i<bytes.length-2;
-  i++
+   let i=0;
+   i<bytes.length-2;
+   i++
  )
  {
 
@@ -139,9 +140,22 @@ function findBinaryDates(
    const d=bytes[i+2];
 
 
+   /*
+     SA licence binary dates:
+
+     YY MM DD
+
+     Examples:
+     19 10 15
+     24 11 03
+     29 11 02
+
+   */
+
+
    if(
      y>=15 &&
-     y<=35 &&
+     y<=40 &&
      m>=1 &&
      m<=12 &&
      d>=1 &&
@@ -150,10 +164,17 @@ function findBinaryDates(
    {
 
      const date =
-       decodeDate(y,m,d);
+       decodeDate(
+         y,
+         m,
+         d
+       );
 
 
-     if(date && !dates.includes(date))
+     if(
+       date &&
+       !dates.includes(date)
+     )
      {
        dates.push(date);
      }
@@ -171,13 +192,13 @@ function findBinaryDates(
 
 
 
-function extractFields(
- ascii:string
+function extractTextFields(
+ text:string
 )
 {
 
- const parts =
-   ascii
+ const fields =
+   text
    .split(/\s+/)
    .filter(Boolean);
 
@@ -187,29 +208,29 @@ function extractFields(
 
 
  surname:
-   parts.find(
-    x=>/^[A-Z]{3,}$/.test(x)
+   fields.find(
+     x=>/^[A-Z]{3,}$/.test(x)
    ) || "",
 
 
 
  initials:
-   parts.find(
-    x=>/^[A-Z]{2}$/.test(x)
+   fields.find(
+     x=>/^[A-Z]{2}$/.test(x)
    ) || "",
 
 
 
  idNumber:
-   parts.find(
-    x=>/^\d{13}$/.test(x)
+   fields.find(
+     x=>/^\d{13}$/.test(x)
    ) || "",
 
 
 
  licenseNumber:
-   parts.find(
-    x=>/^\d{8}[A-Z0-9]+$/.test(x)
+   fields.find(
+     x=>/^\d{8}[A-Z0-9]+$/.test(x)
    ) || ""
 
  };
@@ -226,33 +247,45 @@ export function decodeSALicense(
 {
 
 
+ /*
+   The SA licence QR has a text section
+   followed by binary data.
+
+   From your dump the text starts
+   around byte 16 and ends around
+   byte 63.
+ */
+
+
+ const textBytes =
+   bytes.slice(16,63);
+
+
+
  const ascii =
-   cleanAscii(bytes);
+   bytesToAscii(textBytes);
+
 
 
 
  const fields =
-   extractFields(ascii);
+   extractTextFields(ascii);
+
+
+
+
+
+ const binary =
+   bytes.slice(63);
+
 
 
 
  const dates =
-   findBinaryDates(bytes);
+   findDates(binary);
 
 
 
-
-
- /*
-   IMPORTANT:
-
-   We deliberately do not guess:
-   - gender
-   - category
-   - restrictions
-
-   until the binary structure is confirmed.
- */
 
 
  (window as any).__licenseDebug =
@@ -262,10 +295,11 @@ export function decodeSALicense(
 
    fields,
 
-   dates,
+   binaryStart:63,
 
-   rawBytes:
-     Array.from(bytes)
+   binary:Array.from(binary),
+
+   dates
 
  };
 
@@ -278,7 +312,12 @@ export function decodeSALicense(
 
  vehicleLicenses:[
 
-  {
+ {
+
+   /*
+     Still empty intentionally.
+     We need the category byte map.
+   */
 
    code:"",
 
@@ -290,9 +329,10 @@ export function decodeSALicense(
 
    restriction:""
 
-  }
+ }
 
  ],
+
 
 
 
@@ -301,11 +341,13 @@ export function decodeSALicense(
 
 
 
- idNumberType:"",
+ idNumberType:
+   "",
 
 
 
- idCountryOfIssue:"",
+ idCountryOfIssue:
+   "",
 
 
 
