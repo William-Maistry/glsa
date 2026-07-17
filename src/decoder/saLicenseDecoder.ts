@@ -3,34 +3,14 @@ import { parseLicenseData } from "./parser";
 import type { SALicenseData } from "./types";
 
 
-function bytesToRawString(
-  bytes: Uint8Array
-): string {
+function bytesToAscii(bytes: Uint8Array): string {
 
   let result = "";
 
   for (const b of bytes) {
 
-    if (
-      b === 0xe0 ||
-      b === 0xe1
-    ) {
-
-      result += "|";
-
-    }
-    else if (
-      b >= 32 &&
-      b <= 126
-    ) {
-
+    if (b >= 32 && b <= 126) {
       result += String.fromCharCode(b);
-
-    }
-    else {
-
-      result += ".";
-
     }
 
   }
@@ -47,30 +27,17 @@ export function decodeSALicense(
 
 
   if (bytes.length !== 720) {
-
     throw new Error(
-      `Invalid barcode length. Expected 720 bytes, got ${bytes.length}`
+      `Invalid barcode length ${bytes.length}`
     );
-
   }
 
 
 
-  const versionBytes =
-    bytes.slice(0,4);
-
-
-
-  let version = 2;
-
-
-  if (
-    versionBytes[1] === 0xe1
-  ) {
-
-    version = 1;
-
-  }
+  const version =
+    bytes[1] === 0xe1
+    ? 1
+    : 2;
 
 
 
@@ -97,152 +64,89 @@ export function decodeSALicense(
 
 
 
-  let blockDebug = "";
+  let debug = "";
 
 
 
-  blocks.forEach(
-    (block,index)=>{
+  blocks.forEach((block,index)=>{
 
 
-      const result =
-        rsaDecryptBlock(
-          block,
-          version
-        );
-
-
-      blockDebug +=
-        `\n========== BLOCK ${index} ==========\n`;
-
-
-      blockDebug +=
-        `Length: ${result.length}\n\n`;
-
-
-
-      for(
-        let i=0;
-        i<result.length;
-        i++
-      ){
-
-        if(i % 16 === 0){
-
-          blockDebug +=
-            i
-            .toString(16)
-            .padStart(4,"0")
-            +
-            ": ";
-
-        }
-
-
-        blockDebug +=
-          result[i]
-          .toString(16)
-          .padStart(2,"0")
-          +
-          " ";
-
-
-        if(i % 16 === 15){
-
-          blockDebug += "\n";
-
-        }
-
-      }
-
-
-      const combined =
-        new Uint8Array(
-          decrypted.length +
-          result.length
-        );
-
-
-      combined.set(
-        decrypted
+    const result =
+      rsaDecryptBlock(
+        block,
+        version
       );
 
 
-      combined.set(
-        result,
-        decrypted.length
+    debug +=
+    `\nBLOCK ${index}\n`;
+
+
+    debug +=
+    Array.from(result)
+    .map(
+      b =>
+      b.toString(16)
+      .padStart(2,"0")
+    )
+    .join(" ");
+
+
+
+    const merged =
+      new Uint8Array(
+        decrypted.length +
+        result.length
       );
 
 
-      decrypted =
-        combined;
+    merged.set(
+      decrypted
+    );
 
 
-    }
-  );
+    merged.set(
+      result,
+      decrypted.length
+    );
+
+
+    decrypted =
+      merged;
+
+
+  });
+
+
+
+  (window as any).__blockDebug =
+    debug;
 
 
 
   /*
-    RAW DECRYPTED STRING
+      Remove RSA header
   */
-
-
-  const rawString =
-    bytesToRawString(
-      decrypted
-    );
-
 
   const payload =
     decrypted.slice(16);
 
 
-  const payloadRawString =
-    bytesToRawString(
+
+  const rawString =
+    bytesToAscii(
       payload
     );
 
 
 
-  (window as any).__rawLicenseString =
+  (window as any).__rawBarcodeString =
     rawString;
 
 
 
-  (window as any).__payloadRawString =
-    payloadRawString;
-
-
-
-  /*
-     SHOW EVERYTHING IN CURRENT DEBUG WINDOW
-  */
-
-
-  (window as any).__blockDebug =
-
-`
-================ RAW LICENSE STRING ================
-
-${rawString}
-
-
-================ PAYLOAD STRING ====================
-
-${payloadRawString}
-
-
-================ BLOCK DEBUG ======================
-
-${blockDebug}
-
-`;
-
-
-
   return parseLicenseData(
-    payload
+    rawString
   );
 
 }
