@@ -20,9 +20,12 @@ import {
   decodeBarcode
 } from "./decoders/router";
 
+
 import type {
   ScannerMode
 } from "./scanner/types";
+
+
 
 
 
@@ -36,7 +39,7 @@ function App(){
 
 
 
-  const running =
+  const cameraRunning =
     useRef({
       current:false
     });
@@ -44,13 +47,13 @@ function App(){
 
 
 
- const [
-  mode,
-  setMode
-] =
-useState<ScannerMode>(
-  "licence"
-);
+  const [
+    mode,
+    setMode
+  ] =
+  useState<ScannerMode>(
+    "licence"
+  );
 
 
 
@@ -77,7 +80,6 @@ useState<ScannerMode>(
     setError
   ] =
   useState("");
-
 
 
 
@@ -116,7 +118,6 @@ async function processResult(
     );
 
 
-
   }
   catch(e){
 
@@ -149,7 +150,6 @@ async function handleImage(
     e.target.files?.[0];
 
 
-
   if(!file){
 
     return;
@@ -166,7 +166,6 @@ async function handleImage(
   setData("");
 
   setError("");
-
 
 
 
@@ -208,6 +207,10 @@ async function handleImage(
     );
 
 
+    setStatus(
+      ""
+    );
+
   }
 
 
@@ -220,7 +223,8 @@ async function handleImage(
 
 
 
-async function startCamera(){
+
+async function startQRScanner(){
 
 
   if(
@@ -234,12 +238,10 @@ async function startCamera(){
 
 
   setStatus(
-    "Camera scanning..."
+    "QR live scanning..."
   );
 
 
-
-  setData("");
 
   setError("");
 
@@ -260,12 +262,12 @@ async function startCamera(){
         );
 
 
-        stopCamera();
+        stopQRScanner();
 
 
       },
 
-      running.current
+      cameraRunning.current
 
     );
 
@@ -293,7 +295,7 @@ async function startCamera(){
 
 
 
-function stopCamera(){
+function stopQRScanner(){
 
 
   if(
@@ -302,9 +304,13 @@ function stopCamera(){
 
 
     stopCameraScanner(
+
       videoRef.current,
-      running.current
+
+      cameraRunning.current
+
     );
+
 
   }
 
@@ -323,7 +329,7 @@ useEffect(()=>{
 
   return ()=>{
 
-    stopCamera();
+    stopQRScanner();
 
   };
 
@@ -340,18 +346,27 @@ useEffect(()=>{
 return (
 
 <div
+
 style={{
+
 padding:20,
+
 fontFamily:"Arial",
-maxWidth:800,
+
+maxWidth:900,
+
 margin:"auto"
+
 }}
+
 >
 
 
 <h2>
-South African Barcode Scanner
+South African Document Scanner
 </h2>
+
+
 
 
 
@@ -368,10 +383,20 @@ Scanner Type
 value={mode}
 
 onChange={
-e =>
+e => {
+
 setMode(
 e.target.value as ScannerMode
-)
+);
+
+setData("");
+
+setStatus(
+"Ready"
+);
+
+}
+
 }
 
 >
@@ -383,7 +408,7 @@ Driver Licence
 
 
 <option value="pdf417">
-Generic PDF417
+Smart ID Card
 </option>
 
 
@@ -400,27 +425,72 @@ QR Code
 
 
 
+
+
 <h3>
-Camera
+Scan With Phone Camera
 </h3>
 
 
+<p>
+Use this option to take a photo of the document.
+</p>
+
+
+<input
+
+type="file"
+
+accept="image/*"
+
+capture="environment"
+
+onChange={handleImage}
+
+/>
+
+
+
+
+
+
+
+
+
+
+{
+mode === "qr" &&
+
+<>
+
+
+<h3>
+QR Live Scanner
+</h3>
+
+
+
 <button
-onClick={startCamera}
+onClick={startQRScanner}
 >
-Start Camera
+Start Live QR Scanner
 </button>
 
 
+
 <button
-onClick={stopCamera}
+
+onClick={stopQRScanner}
+
 style={{
-marginLeft:10
-}}
->
-Stop
-</button>
 
+marginLeft:10
+
+}}
+
+>
+Stop QR Scanner
+</button>
 
 
 
@@ -450,14 +520,22 @@ border:"2px solid black"
 
 
 
+</>
+
+}
+
+
+
+
 
 
 
 
 
 <h3>
-Upload Image
+Upload From Files
 </h3>
+
 
 
 <input
@@ -466,11 +544,11 @@ type="file"
 
 accept="image/*"
 
-capture="environment"
-
 onChange={handleImage}
 
 />
+
+
 
 
 
@@ -493,15 +571,22 @@ Status
 
 
 
+
 {
 error &&
 
 <p
+
 style={{
+
 color:"red"
+
 }}
+
 >
+
 {error}
+
 </p>
 
 }
@@ -513,9 +598,11 @@ color:"red"
 
 
 
+
 <h3>
 Decoded Data
 </h3>
+
 
 
 <pre
@@ -535,6 +622,8 @@ whiteSpace:"pre-wrap"
 {data}
 
 </pre>
+
+
 
 
 
