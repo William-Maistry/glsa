@@ -10,7 +10,7 @@ import {
 
 import {
   decodeSALicense
-} from "./decoder/saLicenseDecoder";
+} from "./decoders/saDriversLicence/decoder";
 
 
 
