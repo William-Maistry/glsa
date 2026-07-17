@@ -26,7 +26,7 @@ export function parseLicenseData(
 
 
 
-  const result:SALicenseData = {
+  const result:any = {
 
 
     vehicleLicenses:[
@@ -35,9 +35,7 @@ export function parseLicenseData(
         code:vehicleCode,
 
         restriction:
-          fields[7] || "",
-
-        firstIssueDate:""
+          fields[7] || ""
 
       }
 
@@ -71,66 +69,15 @@ export function parseLicenseData(
 
 
     idNumber:
-      fields[11] || "",
-
-
-
-    idNumberType:"",
-
-
-
-    gender:"",
-
-
-
-    birthDate:"",
-
-
-
-    driverRestrictions:
-      fields[7] || "",
-
-
-
-    licenseIssueNumber:"",
-
-
-
-    licenseValidityStart:"",
-
-
-
-    licenseValidityExpiry:"",
-
-
-
-    professionalDrivingPermitExpiry:
-      null,
-
-
-
-    professionalDrivingPermitCodes:[]
+      fields[11] || ""
 
   };
 
 
 
-  const cleaned =
-    removeEmptyFields(
-      result
-    );
-
-
-
-  (window as any).__licenseDebug =
-  {
-    fields,
-    result: cleaned
-  };
-
-
-
-  return cleaned;
+  return removeEmptyFields(
+    result
+  );
 
 }
 
@@ -139,9 +86,9 @@ export function parseLicenseData(
 
 
 
-function removeEmptyFields<T>(
-  obj:T
-):T {
+function removeEmptyFields(
+  obj:any
+):any {
 
 
   if(Array.isArray(obj)) {
@@ -159,7 +106,7 @@ function removeEmptyFields<T>(
           item !== "" &&
           item !== null &&
           item !== undefined
-      ) as T;
+      );
 
 
   }
@@ -178,7 +125,7 @@ function removeEmptyFields<T>(
 
 
 
-    Object.entries(obj as any)
+    Object.entries(obj)
       .forEach(
         ([key,value])=>{
 
