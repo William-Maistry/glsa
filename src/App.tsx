@@ -14,8 +14,6 @@ import {
 
 
 
-
-
 function sleep(ms:number){
   return new Promise(
     resolve => setTimeout(resolve, ms)
@@ -24,9 +22,11 @@ function sleep(ms:number){
 
 
 
+
 function processFrame(
   source:HTMLVideoElement
 ):ImageData {
+
 
   const canvas =
     document.createElement("canvas");
@@ -35,8 +35,10 @@ function processFrame(
   canvas.width =
     source.videoWidth;
 
+
   canvas.height =
     source.videoHeight;
+
 
 
   const ctx =
@@ -44,8 +46,13 @@ function processFrame(
 
 
   if(!ctx){
-    throw new Error("Canvas error");
+
+    throw new Error(
+      "Canvas error"
+    );
+
   }
+
 
 
   ctx.drawImage(
@@ -55,6 +62,7 @@ function processFrame(
     canvas.width,
     canvas.height
   );
+
 
 
   return ctx.getImageData(
@@ -69,9 +77,10 @@ function processFrame(
 
 
 
+
+
 async function scanImage(
-  image:ImageData,
-  setDebug:(x:string)=>void
+  image:ImageData
 ){
 
   const results =
@@ -84,12 +93,6 @@ async function scanImage(
     );
 
 
-  setDebug(
-    `ZXing detected: ${results.length}\n` +
-    `Bytes: ${results[0]?.bytes?.length ?? 0}`
-  );
-
-
   return results;
 
 }
@@ -98,11 +101,11 @@ async function scanImage(
 
 
 
+
 async function tryDecode(
   bytes:Uint8Array,
   setData:(x:string)=>void,
-  setStatus:(x:string)=>void,
-  setDebug:(x:string)=>void
+  setStatus:(x:string)=>void
 ):Promise<boolean>{
 
 
@@ -111,21 +114,6 @@ async function tryDecode(
 
     const decoded =
       decodeSALicense(bytes);
-
-
-
-    setDebug(
-  "BLOCK DEBUG\n\n" +
-  (
-    (window as any).__blockDebug ||
-    "No block debug available"
-  ) +
-  "\n\nPARSER DEBUG\n\n" +
-  (
-    (window as any).__licenseDebug ||
-    "No parser debug available"
-  )
-);
 
 
 
@@ -159,14 +147,8 @@ async function tryDecode(
 
 
 
-    setDebug(
-      "DECODE ERROR:\n\n" +
-      message +
-      "\n\n" +
-      (
-        (window as any).__licenseDebug ||
-        ""
-      )
+    setStatus(
+      "Decode failed: " + message
     );
 
 
@@ -175,13 +157,6 @@ async function tryDecode(
   }
 
 }
-
-
-
-
-
-
-
 
 
 function App(){
@@ -205,7 +180,6 @@ function App(){
 
 
 
-
   const [
     status,
     setStatus
@@ -219,14 +193,6 @@ function App(){
   const [
     data,
     setData
-  ] =
-  useState("");
-
-
-
-  const [
-    debug,
-    setDebug
   ] =
   useState("");
 
@@ -287,8 +253,7 @@ function App(){
 
         const results =
           await scanImage(
-            image,
-            setDebug
+            image
           );
 
 
@@ -311,12 +276,12 @@ function App(){
 
 
 
+
           const success =
             await tryDecode(
               bytes,
               setData,
-              setStatus,
-              setDebug
+              setStatus
             );
 
 
@@ -339,9 +304,10 @@ function App(){
         busy.current = false;
 
 
-        setDebug(
+        setStatus(
           String(e)
         );
+
 
       }
 
@@ -429,6 +395,7 @@ function App(){
     }
     catch(e){
 
+
       setError(
         String(e)
       );
@@ -472,185 +439,213 @@ function App(){
 
 
 
-async function scanMultipleCrops(
-  img:HTMLImageElement,
-  setDebug:(x:string)=>void
-){
 
-  const canvas =
-    document.createElement("canvas");
+  async function scanMultipleCrops(
+    img:HTMLImageElement
+  ){
 
 
-  let width =
-    img.width;
-
-  let height =
-    img.height;
-
-
-  const maxWidth = 1600;
-
-
-  if(width > maxWidth){
-
-    const scale =
-      maxWidth / width;
-
-    width =
-      Math.floor(width * scale);
-
-    height =
-      Math.floor(height * scale);
-
-  }
-
-
-  canvas.width =
-    width;
-
-  canvas.height =
-    height;
-
-
-  const ctx =
-    canvas.getContext("2d");
-
-
-  if(!ctx){
-    return [];
-  }
-
-
-  ctx.drawImage(
-    img,
-    0,
-    0,
-    width,
-    height
-  );
-
-
-
-  const crops = [
-    {
-      name:"top55",
-      y:0,
-      h:0.55
-    },
-    {
-      name:"shift10",
-      y:0.10,
-      h:0.60
-    },
-    {
-      name:"shift20",
-      y:0.20,
-      h:0.70
-    }
-  ];
-
-
-
-  for(const crop of crops){
-
-
-    const cropCanvas =
+    const canvas =
       document.createElement("canvas");
 
 
-    cropCanvas.width =
+
+    let width =
+      img.width;
+
+
+    let height =
+      img.height;
+
+
+
+    const maxWidth = 1600;
+
+
+
+    if(width > maxWidth){
+
+
+      const scale =
+        maxWidth / width;
+
+
+      width =
+        Math.floor(
+          width * scale
+        );
+
+
+      height =
+        Math.floor(
+          height * scale
+        );
+
+    }
+
+
+
+    canvas.width =
       width;
 
 
-    cropCanvas.height =
-      Math.floor(
-        height * crop.h
-      );
+    canvas.height =
+      height;
 
 
 
-    const cropCtx =
-      cropCanvas.getContext("2d");
+    const ctx =
+      canvas.getContext("2d");
 
 
 
-    if(!cropCtx){
-      continue;
+    if(!ctx){
+
+      return [];
+
     }
 
 
 
-    cropCtx.drawImage(
-      canvas,
-      0,
-      Math.floor(height * crop.y),
-      width,
-      Math.floor(height * crop.h),
+    ctx.drawImage(
+      img,
       0,
       0,
       width,
-      Math.floor(height * crop.h)
+      height
     );
 
 
 
-    const image =
-      cropCtx.getImageData(
+    const crops = [
+
+      {
+        y:0,
+        h:0.55
+      },
+
+      {
+        y:0.10,
+        h:0.60
+      },
+
+      {
+        y:0.20,
+        h:0.70
+      }
+
+    ];
+
+
+
+    for(const crop of crops){
+
+
+      const cropCanvas =
+        document.createElement("canvas");
+
+
+
+      cropCanvas.width =
+        width;
+
+
+
+      cropCanvas.height =
+        Math.floor(
+          height * crop.h
+        );
+
+
+
+      const cropCtx =
+        cropCanvas.getContext("2d");
+
+
+
+      if(!cropCtx){
+
+        continue;
+
+      }
+
+
+
+      cropCtx.drawImage(
+        canvas,
+        0,
+        Math.floor(
+          height * crop.y
+        ),
+        width,
+        Math.floor(
+          height * crop.h
+        ),
         0,
         0,
-        cropCanvas.width,
-        cropCanvas.height
+        width,
+        Math.floor(
+          height * crop.h
+        )
       );
 
 
 
-    setDebug(
-      `Trying crop: ${crop.name}`
-    );
+      const image =
+        cropCtx.getImageData(
+          0,
+          0,
+          cropCanvas.width,
+          cropCanvas.height
+        );
 
 
 
-    const results =
-      await scanImage(
-        image,
-        setDebug
-      );
+      const results =
+        await scanImage(
+          image
+        );
 
 
 
-    if(results.length > 0){
+      if(results.length > 0){
 
-      return results;
+        return results;
+
+      }
+
 
     }
+
+
+
+    return [];
 
   }
 
 
 
-  return [];
-
-}
-
-async function handleImage(
+  async function handleImage(
   e:React.ChangeEvent<HTMLInputElement>
 ){
+
 
   const file =
     e.target.files?.[0];
 
 
+
   if(!file){
+
     return;
+
   }
+
 
 
   setStatus(
     "Processing image..."
   );
-
-
-  setDebug("");
 
 
 
@@ -663,129 +658,10 @@ async function handleImage(
   async()=>{
 
 
-    let width =
-      img.width;
-
-
-    let height =
-      img.height;
-
-
-
-    /*
-      Resize large phone photos
-    */
-
-    const maxWidth = 1600;
-
-
-    if(width > maxWidth){
-
-      const scale =
-        maxWidth / width;
-
-
-      width =
-        Math.floor(width * scale);
-
-
-      height =
-        Math.floor(height * scale);
-
-    }
-
-
-
-
-    const fullCanvas =
-      document.createElement("canvas");
-
-
-    fullCanvas.width =
-      width;
-
-
-    fullCanvas.height =
-      height;
-
-
-
-    const fullCtx =
-      fullCanvas.getContext("2d");
-
-
-
-    if(!fullCtx){
-      return;
-    }
-
-
-
-    fullCtx.drawImage(
-      img,
-      0,
-      0,
-      width,
-      height
-    );
-
-
-
-
-    /*
-      South African licence PDF417
-      is on the top half of the back.
-    */
-
-
-    const cropCanvas =
-      document.createElement("canvas");
-
-
-    cropCanvas.width =
-      width;
-
-
-    cropCanvas.height =
-      Math.floor(
-        height * 0.55
-      );
-
-
-
-    const cropCtx =
-      cropCanvas.getContext("2d");
-
-
-
-    if(!cropCtx){
-      return;
-    }
-
-
-
-    cropCtx.drawImage(
-      fullCanvas,
-      0,
-      0,
-      width,
-      Math.floor(height * 0.55),
-      0,
-      0,
-      width,
-      Math.floor(height * 0.55)
-    );
-
-
-
-
     const results =
       await scanMultipleCrops(
-        img,
-        setDebug
+        img
       );
-
-
 
 
 
@@ -803,10 +679,7 @@ async function handleImage(
 
 
 
-
-    for(
-      const result of results
-    ){
+    for(const result of results){
 
 
       const bytes =
@@ -815,9 +688,10 @@ async function handleImage(
 
 
       if(!bytes){
-        continue;
-      }
 
+        continue;
+
+      }
 
 
 
@@ -825,14 +699,15 @@ async function handleImage(
         await tryDecode(
           bytes,
           setData,
-          setStatus,
-          setDebug
+          setStatus
         );
 
 
 
       if(success){
+
         return;
+
       }
 
 
@@ -845,19 +720,12 @@ async function handleImage(
     );
 
 
-    URL.revokeObjectURL(objectUrl);
-
-
   };
 
 
 
-  const objectUrl =
-    URL.createObjectURL(file);
-
-
   img.src =
-    objectUrl;
+    URL.createObjectURL(file);
 
 }
 
@@ -865,27 +733,29 @@ async function handleImage(
 
 
 
-  useEffect(()=>{
-
-
-    return ()=>{
-
-      stopCamera();
-
-    };
-
-
-  },[]);
 
 
 
+useEffect(()=>{
+
+
+  return ()=>{
+
+    stopCamera();
+
+  };
+
+
+},[]);
 
 
 
 
 
 
-  return (
+
+
+return (
 
 <div
 style={{
@@ -902,6 +772,7 @@ South African Licence Scanner
 
 
 
+
 <h3>
 1. Live Camera Scanner
 </h3>
@@ -912,6 +783,7 @@ onClick={startCamera}
 >
 Start Live Scanner
 </button>
+
 
 
 <button
@@ -926,8 +798,11 @@ Stop
 
 
 
+
 <br/>
 <br/>
+
+
 
 
 
@@ -942,6 +817,7 @@ accept="image/*"
 capture="environment"
 onChange={handleImage}
 />
+
 
 
 
@@ -963,8 +839,12 @@ onChange={handleImage}
 
 
 
+
 <br/>
 <br/>
+
+
+
 
 
 
@@ -988,6 +868,9 @@ border:"3px solid black"
 
 
 
+
+
+
 <h3>
 {status}
 </h3>
@@ -996,9 +879,14 @@ border:"3px solid black"
 
 
 
+
 {
 error &&
-<p style={{color:"red"}}>
+<p
+style={{
+color:"red"
+}}
+>
 {error}
 </p>
 }
@@ -1008,9 +896,13 @@ error &&
 
 
 
+
+
 <h3>
 Decoded Data
 </h3>
+
+
 
 
 <pre
@@ -1028,28 +920,10 @@ whiteSpace:"pre-wrap"
 
 
 
-<h3>
-Parser Debug
-</h3>
-
-
-<pre
-style={{
-background:"#ddd",
-padding:15,
-whiteSpace:"pre-wrap"
-}}
->
-{debug}
-</pre>
-
-
-
-
 
 </div>
 
-  );
+);
 
 }
 
