@@ -2,7 +2,6 @@ import type {
   SALicenseData
 } from "./types";
 
-
 export function parseLicenseData(
   raw:string
 ):SALicenseData {
@@ -14,101 +13,70 @@ export function parseLicenseData(
       .split("|");
 
 
-
-  const vehiclePart =
-    fields[0] || "";
-
-
-
-  const vehicleCode =
-    vehiclePart.match(
-      /C\d/
-    )?.[0] || "";
-
-
-
   const result:SALicenseData = {
-
 
     vehicleLicenses:[
       {
-        code:vehicleCode,
-        restriction:fields[8] || "",
+        code:"C1",
+        restriction:"",
         firstIssueDate:""
       }
     ],
 
 
-
     surname:
-      fields[4] || "",
-
+      fields[3] || "",
 
 
     initials:
-      fields[5] || "",
-
+      fields[4] || "",
 
 
     idCountryOfIssue:
-      fields[6] || "",
-
+      fields[5] || "",
 
 
     licenseCountryOfIssue:
-      fields[7] || "",
-
+      fields[6] || "",
 
 
     licenseNumber:
-      fields[11] || "",
-
+      fields[10] || "",
 
 
     idNumber:
-      fields[12] || "",
-
+      fields[11]?.replace(/\.$/,"") || "",
 
 
     idNumberType:"",
 
-
-
     gender:"",
-
 
     birthDate:"",
 
 
     driverRestrictions:
-      fields[8] || "",
+      fields[7] || "",
 
 
     licenseIssueNumber:"",
 
-
     licenseValidityStart:"",
-
 
     licenseValidityExpiry:"",
 
-
-    professionalDrivingPermitExpiry:
-      null,
-
+    professionalDrivingPermitExpiry:null,
 
     professionalDrivingPermitCodes:[]
 
   };
 
 
-
   (window as any).__licenseDebug =
-    {
-      fields,
-      result
-    };
-
+  {
+    fields,
+    result
+  };
 
 
   return result;
