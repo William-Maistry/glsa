@@ -9,6 +9,17 @@ function bytesToAscii(bytes: Uint8Array): string {
 
   for (const b of bytes) {
 
+    /*
+      South African licence barcode
+      uses E0/E1 as field separators
+    */
+
+    if (b === 0xe0 || b === 0xe1) {
+      result += "|";
+      continue;
+    }
+
+
     if (b >= 32 && b <= 126) {
       result += String.fromCharCode(b);
     }
@@ -27,9 +38,11 @@ export function decodeSALicense(
 
 
   if (bytes.length !== 720) {
+
     throw new Error(
       `Invalid barcode length ${bytes.length}`
     );
+
   }
 
 
@@ -78,18 +91,20 @@ export function decodeSALicense(
       );
 
 
-    debug +=
-    `\nBLOCK ${index}\n`;
-
 
     debug +=
-    Array.from(result)
-    .map(
-      b =>
-      b.toString(16)
-      .padStart(2,"0")
-    )
-    .join(" ");
+      `\nBLOCK ${index}\n`;
+
+
+
+    debug +=
+      Array.from(result)
+      .map(
+        b =>
+          b.toString(16)
+          .padStart(2,"0")
+      )
+      .join(" ");
 
 
 
@@ -125,11 +140,14 @@ export function decodeSALicense(
 
 
   /*
-      Remove RSA header
+    Remove RSA header.
+
+    The ASCII licence payload starts
+    at byte 15.
   */
 
   const payload =
-    decrypted.slice(16);
+    decrypted.slice(15);
 
 
 
