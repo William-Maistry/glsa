@@ -34,7 +34,7 @@ export function parseLicenseData(
         code:vehicleCode,
 
         restriction:
-          fields[8] || "",
+          fields[7] || "",
 
         firstIssueDate:""
 
@@ -45,32 +45,32 @@ export function parseLicenseData(
 
 
     surname:
-      fields[4] || "",
+      fields[3] || "",
 
 
 
     initials:
-      fields[5] || "",
+      fields[4] || "",
 
 
 
     idCountryOfIssue:
-      fields[6] || "",
+      fields[5] || "",
 
 
 
     licenseCountryOfIssue:
-      fields[7] || "",
+      fields[6] || "",
 
 
 
     licenseNumber:
-      fields[11] || "",
+      fields[10] || "",
 
 
 
     idNumber:
-      fields[12] || "",
+      fields[11] || "",
 
 
 
@@ -87,7 +87,7 @@ export function parseLicenseData(
 
 
     driverRestrictions:
-      fields[8] || "",
+      fields[7] || "",
 
 
 
