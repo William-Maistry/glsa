@@ -3,6 +3,7 @@ import type {
 } from "./types";
 
 
+
 export function parseLicenseData(
   raw:string
 ):SALicenseData {
@@ -114,14 +115,103 @@ export function parseLicenseData(
 
 
 
+  const cleaned =
+    removeEmptyFields(
+      result
+    );
+
+
+
   (window as any).__licenseDebug =
   {
     fields,
-    result
+    result: cleaned
   };
 
 
 
-  return result;
+  return cleaned;
+
+}
+
+
+
+
+
+
+function removeEmptyFields<T>(
+  obj:T
+):T {
+
+
+  if(Array.isArray(obj)) {
+
+
+    return obj
+
+      .map(
+        item =>
+          removeEmptyFields(item)
+      )
+
+      .filter(
+        item =>
+          item !== "" &&
+          item !== null &&
+          item !== undefined
+      ) as T;
+
+
+  }
+
+
+
+
+
+  if(
+    typeof obj === "object" &&
+    obj !== null
+  ) {
+
+
+    const cleaned:any = {};
+
+
+
+    Object.entries(obj as any)
+      .forEach(
+        ([key,value])=>{
+
+
+          if(
+            value === "" ||
+            value === null ||
+            value === undefined
+          ){
+
+            return;
+
+          }
+
+
+
+          cleaned[key] =
+            removeEmptyFields(value);
+
+
+        }
+      );
+
+
+
+    return cleaned;
+
+  }
+
+
+
+
+
+  return obj;
 
 }
