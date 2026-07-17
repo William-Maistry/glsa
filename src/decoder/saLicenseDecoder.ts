@@ -10,8 +10,7 @@ function bytesToAscii(bytes: Uint8Array): string {
   for (const b of bytes) {
 
     /*
-      South African licence barcode
-      uses E0/E1 as field separators
+      SA licence barcode separators
     */
 
     if (b === 0xe0 || b === 0xe1) {
@@ -140,14 +139,44 @@ export function decodeSALicense(
 
 
   /*
-    Remove RSA header.
+    Locate the licence payload dynamically.
 
-    The ASCII licence payload starts
-    at byte 15.
+    YC1 is the start marker:
+    59 43 31
   */
 
+  const start =
+    decrypted.indexOf(0x59);
+
+
+
+  if (start === -1) {
+
+    throw new Error(
+      "Licence payload start not found"
+    );
+
+  }
+
+
+
+  /*
+    The binary section starts with
+    0x02 after the ID number.
+  */
+
+  const end =
+    decrypted.indexOf(
+      0x02,
+      start
+    );
+
+
+
   const payload =
-    decrypted.slice(15);
+    end > start
+    ? decrypted.slice(start, end)
+    : decrypted.slice(start);
 
 
 
